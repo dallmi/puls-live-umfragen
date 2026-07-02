@@ -134,7 +134,14 @@ const DICT = {
     en: { one: '{{n}} vote', other: '{{n}} votes' },
   },
   'results.wordcloud.empty': { de: 'Noch keine Begriffe — die Wolke entsteht live.', en: 'No terms yet — the cloud builds live.' },
-  'results.wordcloud.meta': { de: '{{voters}} Teilnehmende · {{words}} Begriffe', en: '{{voters}} participants · {{words}} terms' },
+  'results.wordcloud.metaVoters': {
+    de: { one: '{{n}} Teilnehmende', other: '{{n}} Teilnehmende' },
+    en: { one: '{{n}} participant', other: '{{n}} participants' },
+  },
+  'results.wordcloud.metaWords': {
+    de: { one: '{{n}} Begriff', other: '{{n}} Begriffe' },
+    en: { one: '{{n}} term', other: '{{n}} terms' },
+  },
   'results.open.empty': { de: 'Noch keine Antworten.', en: 'No answers yet.' },
   'results.open.count': {
     de: { one: '{{n}} Antwort', other: '{{n}} Antworten' },

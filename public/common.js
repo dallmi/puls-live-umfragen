@@ -167,7 +167,7 @@ function renderWordcloud(container, results, opts) {
     ));
   });
   container.appendChild(cloud);
-  container.appendChild(el(`<p class="results-meta">${t('results.wordcloud.meta', { voters: results.voters, words: results.words.length })}</p>`));
+  container.appendChild(el(`<p class="results-meta">${t('results.wordcloud.metaVoters', { n: results.voters })} · ${t('results.wordcloud.metaWords', { n: results.words.length })}</p>`));
 }
 
 function renderOpen(container, results, opts) {
