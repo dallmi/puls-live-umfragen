@@ -11,13 +11,14 @@
 <body>
 
 <header class="ds-header" id="editorHeader">
-  <a class="brand ds-title" href="/"><b>PULS</b> Moderation</a>
+  <a class="brand ds-title" href="/"><b>PULS</b> <span data-i18n="presenter.brand">Moderation</span></a>
   <div class="ds-header-controls">
     <span class="save-state" id="saveState"></span>
-    <button class="ds-btn" id="btnResetAll">Alle Antworten zurücksetzen</button>
-    <a class="ds-btn" id="btnExport" download>Excel-Export</a>
-    <button class="ds-btn" id="btnPptx">PowerPoint-Export</button>
-    <button class="ds-btn ds-btn-primary" id="btnPresent">Präsentieren</button>
+    <span id="langToggle"></span>
+    <button class="ds-btn" id="btnResetAll" data-i18n="presenter.resetAll">Alle Antworten zurücksetzen</button>
+    <a class="ds-btn" id="btnExport" download data-i18n="presenter.export">Excel-Export</a>
+    <button class="ds-btn" id="btnPptx" data-i18n="presenter.pptxExport">PowerPoint-Export</button>
+    <button class="ds-btn ds-btn-primary" id="btnPresent" data-i18n="presenter.present">Präsentieren</button>
   </div>
 </header>
 
@@ -27,7 +28,7 @@
 
       <aside>
         <div class="ds-card" style="margin-bottom: 1rem;">
-          <div class="ds-card-title">Zugang für das Publikum</div>
+          <div class="ds-card-title" data-i18n="presenter.accessCard.title">Zugang für das Publikum</div>
           <div class="join-info-card">
             <div>
               <div class="join-code-big" id="joinCodeBig">— — —</div>
@@ -39,8 +40,8 @@
 
         <div class="ds-card">
           <div class="ds-card-title">
-            Folien
-            <button class="ds-btn" id="btnAddSlide">+ Neue Folie</button>
+            <span data-i18n="presenter.slides.title">Folien</span>
+            <button class="ds-btn" id="btnAddSlide" data-i18n="presenter.slides.add">+ Neue Folie</button>
           </div>
           <div class="slide-list" id="slideList"></div>
         </div>
@@ -48,45 +49,45 @@
 
       <section>
         <div class="ds-card" style="margin-bottom: 1rem;">
-          <div class="ds-card-title">Präsentation</div>
+          <div class="ds-card-title" data-i18n="presenter.details.title">Präsentation</div>
           <div class="field">
-            <label for="presTitle">Titel</label>
+            <label for="presTitle" data-i18n="field.title.label">Titel</label>
             <input type="text" id="presTitle" maxlength="120">
           </div>
         </div>
 
         <div class="ds-card" id="slideEditor" hidden>
           <div class="ds-card-title">
-            <span id="slideEditorTitle">Folie</span>
+            <span id="slideEditorTitle" data-i18n="common.slideFallback">Folie</span>
             <span style="display:flex; gap:0.4rem;">
-              <button class="ds-btn" id="btnMoveUp" title="Nach oben">↑</button>
-              <button class="ds-btn" id="btnMoveDown" title="Nach unten">↓</button>
-              <button class="ds-btn" id="btnResetSlide">Antworten zurücksetzen</button>
-              <button class="ds-btn ds-btn-danger" id="btnDeleteSlide">Löschen</button>
+              <button class="ds-btn" id="btnMoveUp" data-i18n-title="presenter.slide.moveUp" title="Nach oben">↑</button>
+              <button class="ds-btn" id="btnMoveDown" data-i18n-title="presenter.slide.moveDown" title="Nach unten">↓</button>
+              <button class="ds-btn" id="btnResetSlide" data-i18n="presenter.slide.resetAnswers">Antworten zurücksetzen</button>
+              <button class="ds-btn ds-btn-danger" id="btnDeleteSlide" data-i18n="presenter.slide.delete">Löschen</button>
             </span>
           </div>
 
           <div class="field">
-            <label for="slideType">Folientyp</label>
+            <label for="slideType" data-i18n="presenter.field.type">Folientyp</label>
             <select id="slideType"></select>
             <div class="help" id="typeHint"></div>
           </div>
 
           <div class="field" id="fieldQuestion">
-            <label for="slideQuestion">Frage / Überschrift</label>
-            <input type="text" id="slideQuestion" maxlength="250" placeholder="Ihre Frage an das Publikum">
+            <label for="slideQuestion" data-i18n="presenter.field.question">Frage / Überschrift</label>
+            <input type="text" id="slideQuestion" maxlength="250" placeholder="Ihre Frage an das Publikum" data-i18n-placeholder="presenter.field.questionPlaceholder">
           </div>
 
           <!-- Multiple Choice -->
           <div id="editChoice" hidden>
             <div class="field">
-              <label>Antwortoptionen (max. 8)</label>
+              <label data-i18n="presenter.field.options">Antwortoptionen (max. 8)</label>
               <div id="optionRows"></div>
-              <button class="ds-btn" id="btnAddOption" type="button">+ Option</button>
+              <button class="ds-btn" id="btnAddOption" type="button" data-i18n="presenter.field.addOption">+ Option</button>
             </div>
             <div class="field">
               <label style="display:flex; align-items:center; gap:0.5rem; font-weight:400;">
-                <input type="checkbox" id="optMultiple" style="width:auto;"> Mehrfachauswahl erlauben
+                <input type="checkbox" id="optMultiple" style="width:auto;"> <span data-i18n="presenter.field.allowMultiple">Mehrfachauswahl erlauben</span>
               </label>
             </div>
           </div>
@@ -94,7 +95,7 @@
           <!-- Wortwolke -->
           <div id="editWordcloud" hidden>
             <div class="field">
-              <label for="optMaxWords">Begriffe pro Person</label>
+              <label for="optMaxWords" data-i18n="presenter.field.wordsPerPerson">Begriffe pro Person</label>
               <select id="optMaxWords">
                 <option value="1">1</option><option value="2">2</option><option value="3">3</option>
               </select>
@@ -104,40 +105,40 @@
           <!-- Skala -->
           <div id="editScale" hidden>
             <div class="field">
-              <label for="optScaleMax">Skala von 1 bis …</label>
+              <label for="optScaleMax" data-i18n="presenter.field.scaleUpTo">Skala von 1 bis …</label>
               <select id="optScaleMax">
                 <option value="5">5</option><option value="6">6</option><option value="7">7</option>
                 <option value="10">10</option>
               </select>
             </div>
             <div class="field">
-              <label for="optMinLabel">Beschriftung links (1)</label>
-              <input type="text" id="optMinLabel" maxlength="40" placeholder="trifft nicht zu">
+              <label for="optMinLabel" data-i18n="presenter.field.minLabel">Beschriftung links (1)</label>
+              <input type="text" id="optMinLabel" maxlength="40" placeholder="trifft nicht zu" data-i18n-placeholder="presenter.field.minLabelPlaceholder">
             </div>
             <div class="field">
-              <label for="optMaxLabel">Beschriftung rechts (Maximum)</label>
-              <input type="text" id="optMaxLabel" maxlength="40" placeholder="trifft voll zu">
+              <label for="optMaxLabel" data-i18n="presenter.field.maxLabel">Beschriftung rechts (Maximum)</label>
+              <input type="text" id="optMaxLabel" maxlength="40" placeholder="trifft voll zu" data-i18n-placeholder="presenter.field.maxLabelPlaceholder">
             </div>
           </div>
 
           <!-- Infofolie -->
           <div id="editInfo" hidden>
             <div class="field">
-              <label for="optInfoText">Text</label>
+              <label for="optInfoText" data-i18n="presenter.field.infoText">Text</label>
               <textarea id="optInfoText" rows="6" maxlength="2000"></textarea>
             </div>
           </div>
         </div>
 
         <div class="ds-empty" id="noSlides" hidden>
-          <h3>Noch keine Folien</h3>
-          <p>Fügen Sie links die erste Folie hinzu.</p>
+          <h3 data-i18n="presenter.empty.title">Noch keine Folien</h3>
+          <p data-i18n="presenter.empty.desc">Fügen Sie links die erste Folie hinzu.</p>
         </div>
 
         <div class="ds-card" id="resultsCard" style="margin-top: 1rem;" hidden>
           <div class="ds-card-title">
-            Ergebnisse dieser Folie
-            <span class="ds-card-subtitle">aktualisiert sich live — bleibt auch nach der Präsentation erhalten</span>
+            <span data-i18n="presenter.results.title">Ergebnisse dieser Folie</span>
+            <span class="ds-card-subtitle" data-i18n="presenter.results.subtitle">aktualisiert sich live — bleibt auch nach der Präsentation erhalten</span>
           </div>
           <div id="editorResults"></div>
         </div>
@@ -152,7 +153,7 @@
     <div class="join-line" id="presentJoinLine"></div>
     <div style="display:flex; align-items:center; gap:1.25rem;">
       <span class="audience-count" id="audienceCount"></span>
-      <button class="ds-btn" id="btnExitPresent">Beenden (Esc)</button>
+      <button class="ds-btn" id="btnExitPresent" data-i18n="presenter.present.exit">Beenden (Esc)</button>
     </div>
   </div>
   <div class="present-body">
@@ -162,9 +163,9 @@
   <div class="present-footer">
     <div class="qr-small" id="presentQr"></div>
     <div class="nav">
-      <button class="ds-btn" id="btnPrev">← Zurück</button>
+      <button class="ds-btn" id="btnPrev" data-i18n="presenter.present.prev">← Zurück</button>
       <span class="pos" id="presentPos"></span>
-      <button class="ds-btn" id="btnNext">Weiter →</button>
+      <button class="ds-btn" id="btnNext" data-i18n="presenter.present.next">Weiter →</button>
     </div>
     <div style="display:flex; gap:0.5rem; align-items:center;">
       <button class="ds-btn" id="btnToggleResults"></button>
@@ -176,17 +177,21 @@
 <script src="/vendor/qrcode.js"></script>
 <script src="/vendor/pptxgen.bundle.js"></script>
 <script src="/pptx-export.js"></script>
+<script src="/i18n.js"></script>
 <script src="/common.js"></script>
 <script>
 'use strict';
+
+document.title = t('presenter.pageTitle');
+initLangToggle(document.getElementById('langToggle'), refreshLanguage);
 
 const params = new URLSearchParams(location.search);
 const PRES_ID = params.get('id');
 const TOKEN = params.get('token');
 
 if (!PRES_ID || !TOKEN) {
-  document.getElementById('editorRoot').innerHTML =
-    '<div class="ds-empty"><h3>Ungültiger Link</h3><p>Moderationslinks enthalten eine ID und ein Token.</p></div>';
+  document.getElementById('editorRoot').innerHTML = `
+    <div class="ds-empty"><h3>${t('presenter.invalidLink.title')}</h3><p>${t('presenter.invalidLink.desc')}</p></div>`;
   throw new Error('missing params');
 }
 
@@ -218,7 +223,7 @@ async function load() {
   pres = await api('GET', `/api/presentations/${PRES_ID}`, undefined, TOKEN);
   $('presTitle').value = pres.title;
   $('joinCodeBig').textContent = formatCode(pres.code);
-  $('joinUrl').innerHTML = `Beitreten auf <b>${esc(publicBase.replace(/^https?:\/\//, ''))}</b>`;
+  $('joinUrl').innerHTML = `${t('presenter.access.joinAt')} <b>${esc(publicBase.replace(/^https?:\/\//, ''))}</b>`;
   $('btnExport').href = `/api/presentations/${PRES_ID}/export.xlsx?token=${encodeURIComponent(TOKEN)}`;
   renderQR($('qrBox'), `${publicBase}/${pres.code}`, 120);
   latestResults = {};
@@ -254,7 +259,7 @@ function renderResultsPanel() {
   card.hidden = false;
   const results = latestResults[slide.id];
   if (!results) {
-    $('editorResults').innerHTML = '<p class="results-empty">Noch keine Antworten.</p>';
+    $('editorResults').innerHTML = `<p class="results-empty">${t('presenter.results.empty')}</p>`;
     return;
   }
   renderResults($('editorResults'), slide, results, {});
@@ -262,7 +267,7 @@ function renderResultsPanel() {
 
 let saveTimer = null;
 function scheduleSave() {
-  $('saveState').textContent = 'Speichert …';
+  $('saveState').textContent = t('presenter.save.saving');
   $('saveState').classList.remove('saved');
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveNow, 600);
@@ -271,10 +276,10 @@ function scheduleSave() {
 async function saveNow() {
   try {
     await api('PUT', `/api/presentations/${PRES_ID}/slides`, { slides: pres.slides }, TOKEN);
-    $('saveState').textContent = 'Gespeichert';
+    $('saveState').textContent = t('presenter.save.saved');
     $('saveState').classList.add('saved');
   } catch {
-    $('saveState').textContent = 'Speichern fehlgeschlagen';
+    $('saveState').textContent = t('presenter.save.failed');
   }
 }
 
@@ -292,8 +297,8 @@ function renderSlideList() {
       <button class="slide-item${i === selectedIdx ? ' active' : ''}">
         <span class="num">${i + 1}</span>
         <span class="meta">
-          <span class="q">${esc(s.question || (TYPE_META[s.type] || {}).label || 'Folie')}</span><br>
-          <span class="ty">${(TYPE_META[s.type] || {}).label || s.type}</span>
+          <span class="q">${esc(s.question || typeMeta(s.type).label || t('common.slideFallback'))}</span><br>
+          <span class="ty">${typeMeta(s.type).label || s.type}</span>
         </span>
       </button>`);
     item.addEventListener('click', () => {
@@ -316,13 +321,13 @@ function currentSlide() {
 function renderSlideEditor() {
   const s = currentSlide();
   if (!s) return;
-  $('slideEditorTitle').textContent = `Folie ${selectedIdx + 1} von ${pres.slides.length}`;
+  $('slideEditorTitle').textContent = t('common.slidePosition', { n: selectedIdx + 1, total: pres.slides.length });
 
   const typeSel = $('slideType');
-  typeSel.innerHTML = Object.entries(TYPE_META)
-    .map(([v, m]) => `<option value="${v}"${v === s.type ? ' selected' : ''}>${m.label}</option>`)
+  typeSel.innerHTML = SLIDE_TYPES
+    .map((v) => `<option value="${v}"${v === s.type ? ' selected' : ''}>${typeMeta(v).label}</option>`)
     .join('');
-  $('typeHint').textContent = (TYPE_META[s.type] || {}).hint || '';
+  $('typeHint').textContent = typeMeta(s.type).hint || '';
   $('slideQuestion').value = s.question || '';
 
   $('editChoice').hidden = s.type !== 'choice';
@@ -351,8 +356,8 @@ function renderOptionRows() {
   (s.options || []).forEach((opt, i) => {
     const row = el(`
       <div class="option-row">
-        <input type="text" maxlength="120" value="${esc(opt)}" placeholder="Option ${i + 1}">
-        <button class="ds-btn" type="button" title="Option entfernen">×</button>
+        <input type="text" maxlength="120" value="${esc(opt)}" placeholder="${t('presenter.field.optionPlaceholder', { n: i + 1 })}">
+        <button class="ds-btn" type="button" title="${t('presenter.field.removeOption')}">×</button>
       </div>`);
     row.querySelector('input').addEventListener('input', (e) => {
       s.options[i] = e.target.value;
@@ -400,9 +405,9 @@ $('presTitle').addEventListener('input', async (e) => {
   saveTimer = setTimeout(async () => {
     try {
       await api('PUT', `/api/presentations/${PRES_ID}`, { title: e.target.value }, TOKEN);
-      $('saveState').textContent = 'Gespeichert';
+      $('saveState').textContent = t('presenter.save.saved');
       $('saveState').classList.add('saved');
-    } catch { $('saveState').textContent = 'Speichern fehlgeschlagen'; }
+    } catch { $('saveState').textContent = t('presenter.save.failed'); }
   }, 600);
 });
 
@@ -421,7 +426,7 @@ $('btnAddSlide').addEventListener('click', () => {
 });
 
 $('btnDeleteSlide').addEventListener('click', () => {
-  if (!confirm('Diese Folie und ihre Antworten löschen?')) return;
+  if (!confirm(t('presenter.confirm.deleteSlide'))) return;
   pres.slides.splice(selectedIdx, 1);
   selectedIdx = Math.max(0, selectedIdx - 1);
   renderSlideList();
@@ -445,26 +450,26 @@ function moveSlide(delta) {
 $('btnPptx').addEventListener('click', async () => {
   const btn = $('btnPptx');
   btn.disabled = true;
-  btn.textContent = 'Erstelle PPTX …';
+  btn.textContent = t('presenter.pptxExporting');
   try {
     await saveNow();
     await refreshResults();
     const pptx = buildPulsPptx(PptxGenJS, pres, latestResults);
     await pptx.writeFile({ fileName: `puls-${pres.code}-${new Date().toISOString().slice(0, 10)}.pptx` });
   } catch (e) {
-    alert('PowerPoint-Export fehlgeschlagen: ' + e.message);
+    alert(t('presenter.pptxFailed') + e.message);
   } finally {
     btn.disabled = false;
-    btn.textContent = 'PowerPoint-Export';
+    btn.textContent = t('presenter.pptxExport');
   }
 });
 
 $('btnResetSlide').addEventListener('click', async () => {
-  if (!confirm('Alle Antworten dieser Folie löschen?')) return;
+  if (!confirm(t('presenter.confirm.resetSlide'))) return;
   await api('POST', `/api/presentations/${PRES_ID}/reset`, { slideId: currentSlide().id }, TOKEN);
 });
 $('btnResetAll').addEventListener('click', async () => {
-  if (!confirm('Antworten aller Folien löschen? (z. B. nach einem Probelauf)')) return;
+  if (!confirm(t('presenter.confirm.resetAll'))) return;
   await api('POST', `/api/presentations/${PRES_ID}/reset`, {}, TOKEN);
 });
 
@@ -488,7 +493,7 @@ async function enterPresent() {
   document.body.style.overflow = 'hidden';
   const joinUrl = publicBase.replace(/^https?:\/\//, '');
   $('presentJoinLine').innerHTML =
-    `Beitreten auf <b>${esc(joinUrl)}</b> — Code <b>${formatCode(pres.code)}</b>`;
+    `${t('presenter.access.joinAt')} <b>${esc(joinUrl)}</b> — Code <b>${formatCode(pres.code)}</b>`;
   renderQR($('presentQr'), `${publicBase}/${pres.code}`, 64);
   if (lastSnapshot) onSnapshot(lastSnapshot);
   if (document.documentElement.requestFullscreen) {
@@ -519,19 +524,19 @@ function onSnapshot(snap) {
   scheduleResultsRefresh(); // Ergebnis-Panel im Editor aktuell halten
   if (!presenting) return;
   $('presentPos').textContent = snap.slideCount ? `${snap.activeIndex + 1} / ${snap.slideCount}` : '0 / 0';
-  $('audienceCount').textContent = `${snap.audience} ${snap.audience === 1 ? 'Person' : 'Personen'} verbunden`;
-  $('btnToggleResults').textContent = snap.resultsHidden ? 'Ergebnisse einblenden' : 'Ergebnisse ausblenden';
-  $('btnToggleLock').textContent = snap.votingLocked ? 'Abstimmung freigeben' : 'Abstimmung sperren';
+  $('audienceCount').textContent = t('presenter.present.audience', { n: snap.audience });
+  $('btnToggleResults').textContent = snap.resultsHidden ? t('presenter.present.showResults') : t('presenter.present.hideResults');
+  $('btnToggleLock').textContent = snap.votingLocked ? t('presenter.present.unlockVoting') : t('presenter.present.lockVoting');
   $('btnPrev').disabled = snap.activeIndex <= 0;
   $('btnNext').disabled = snap.activeIndex >= snap.slideCount - 1;
 
   const q = $('presentQuestion');
   if (!snap.slide) {
-    q.textContent = 'Keine Folien vorhanden.';
+    q.textContent = t('presenter.present.noSlides');
     $('presentResults').innerHTML = '';
     return;
   }
-  q.textContent = snap.slide.question || (TYPE_META[snap.slide.type] || {}).label || '';
+  q.textContent = snap.slide.question || typeMeta(snap.slide.type).label || '';
   renderResults($('presentResults'), snap.slide, snap.results, {});
 }
 
@@ -544,10 +549,18 @@ document.addEventListener('keydown', (e) => {
 
 // ---------------------------------------------------------------------------
 
+function refreshLanguage() {
+  document.title = t('presenter.pageTitle');
+  if (pres && !presenting) {
+    renderSlideList();
+    renderSlideEditor();
+  }
+}
+
 load().catch((err) => {
   document.getElementById('editorRoot').innerHTML = err.status === 403
-    ? '<div class="ds-empty"><h3>Kein Zugriff</h3><p>Das Moderations-Token ist ungültig.</p></div>'
-    : '<div class="ds-empty"><h3>Präsentation nicht gefunden</h3><p>Sie wurde möglicherweise gelöscht.</p></div>';
+    ? `<div class="ds-empty"><h3>${t('presenter.noAccess.title')}</h3><p>${t('presenter.noAccess.desc')}</p></div>`
+    : `<div class="ds-empty"><h3>${t('presenter.notFound.title')}</h3><p>${t('presenter.notFound.desc')}</p></div>`;
 });
 </script>
 </body>
