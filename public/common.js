@@ -36,32 +36,65 @@ async function api(method, path, body, adminToken) {
 }
 
 // ---------------------------------------------------------------------------
-// SSE mit automatischem Reconnect
+// Echtzeit-Updates: SSE, mit automatischem Rückfall auf Polling.
+// Auf dem eigenen Server (Hetzner) läuft SSE → sofortige Updates. Serverlos
+// (Vercel) gibt es kein SSE → sobald die Verbindung ohne je eine Nachricht
+// erhalten zu haben scheitert, wird auf periodisches Abfragen umgeschaltet.
 // ---------------------------------------------------------------------------
+
+const POLL_INTERVAL_MS = 1500;
 
 function connectStream(presId, role, onUpdate, onStatus) {
   let source = null;
+  let pollTimer = null;
   let closed = false;
+  let gotMessage = false;
 
-  function open() {
-    if (closed) return;
+  function startPolling() {
+    if (closed || pollTimer) return;
+    async function tick() {
+      if (closed) return;
+      try {
+        const snap = await api('GET', `/api/presentations/${presId}`);
+        if (closed) return;
+        onUpdate(snap);
+        if (onStatus) onStatus('live');
+      } catch {
+        if (onStatus) onStatus('reconnect');
+      }
+      if (!closed) pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
+    }
+    tick();
+  }
+
+  function startSSE() {
+    if (typeof EventSource === 'undefined') return startPolling();
     source = new EventSource(`/api/presentations/${presId}/stream?role=${role}`);
     source.onmessage = (e) => {
+      gotMessage = true;
       try {
         onUpdate(JSON.parse(e.data));
         if (onStatus) onStatus('live');
       } catch { /* ignorieren */ }
     };
     source.onerror = () => {
-      if (onStatus) onStatus('reconnect');
-      // EventSource verbindet selbst neu (retry: 3000 vom Server)
+      // Nie eine Nachricht erhalten → SSE nicht verfügbar → auf Polling wechseln.
+      if (!gotMessage) {
+        source.close();
+        source = null;
+        startPolling();
+      } else if (onStatus) {
+        onStatus('reconnect'); // EventSource verbindet danach selbst neu
+      }
     };
   }
-  open();
+
+  startSSE();
   return {
     close() {
       closed = true;
       if (source) source.close();
+      if (pollTimer) clearTimeout(pollTimer);
     },
   };
 }

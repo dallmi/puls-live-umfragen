@@ -59,10 +59,38 @@ LAN-Adresse des Servers (`/api/server-info`). Beim ersten Start fragt macOS ggf.
 eingehende Verbindungen annehmen darf — zulassen. In Gäste-/Firmen-WLANs kann
 Client-Isolation Verbindungen zwischen Geräten blockieren.
 
+## Öffentlich teilen via Vercel (Free Tier)
+
+Für eine öffentliche Instanz, die man Freunden per Link geben kann — getrennt vom
+eigenen Server — liegt eine serverlose Variante bei. Sie nutzt dieselbe Domänenlogik
+(`lib/domain.mjs`), aber einen Key-Value-Speicher (Upstash Redis) statt einer Datei und
+**Polling statt SSE** (Vercel ist serverlos: kein geteilter Speicher, keine dauerhaften
+Verbindungen). Der Client (`common.js`) schaltet automatisch von SSE auf Polling um, wenn
+SSE nicht verfügbar ist — auf dem eigenen Server bleiben die Updates also weiter sofort.
+
+**Einrichtung (einmalig, ~5 Min):**
+
+1. Repo bei [vercel.com](https://vercel.com) importieren („Add New… → Project" → GitHub-Repo
+   `puls-live-umfragen"). Framework-Preset: **Other**. Deploy starten.
+2. Im Projekt → **Storage** → **Create Database** → **Upstash for Redis** (Free) verbinden.
+   Vercel legt automatisch die Env-Variablen `KV_REST_API_URL` und `KV_REST_API_TOKEN` an —
+   die Funktion erkennt sie selbst (Fallback ohne Redis: In-Memory, nicht dauerhaft).
+3. **Redeploy** (Deployments → „Redeploy"), damit die Env-Variablen greifen.
+4. Fertig — die `*.vercel.app`-URL an Freunde geben. Neuanlage ist auf 30/Std./IP begrenzt,
+   Präsentationen laufen nach 60 Tagen Inaktivität automatisch ab (Redis-TTL).
+
+Alternativ per CLI: `vercel login`, dann `vercel --prod` (Upstash trotzdem im Dashboard
+verbinden). Konfiguration steht in `vercel.json` (Routing, 6-stellige Kurz-URL,
+Security-Header/CSP). Grenze des Free Tiers: Polling ~alle 1,5 s, Upstash 10 000 Kommandos/Tag
+— für Freundeskreis/kleine Runden reichlich, nicht für Massen-Events.
+
 ## Architektur
 
 ```
-server.js            Zero-Dependency Node.js-Server (http, fs, crypto)
+server.js            Zero-Dependency Node.js-Server (http, fs, crypto) — eigener Server
+lib/domain.mjs       Gemeinsame Domänenlogik (Ergebnisse, Validierung, XLSX)
+api/[...path].js     Serverlose Vercel-Funktion (Upstash-KV, Polling) — nutzt lib/domain.mjs
+vercel.json          Vercel-Routing, Kurz-URL, Security-Header
                      REST-API + Server-Sent Events (SSE) für Echtzeit
 data/store.json      Persistenz (automatisch, atomisches Schreiben)
 public/

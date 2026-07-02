@@ -4,3 +4,5 @@ data/store.json
 .playwright-mcp/
 puls-windows.zip
 .worktrees/
+.vercel/
+.env*.local
