@@ -188,7 +188,12 @@ function detectDefaultLang() {
 function getLang() {
   if (currentLang) return currentLang;
   const saved = localStorage.getItem(LANG_KEY);
-  currentLang = (saved === 'de' || saved === 'en') ? saved : detectDefaultLang();
+  if (saved === 'de' || saved === 'en') {
+    currentLang = saved;
+  } else {
+    currentLang = detectDefaultLang();
+    localStorage.setItem(LANG_KEY, currentLang);
+  }
   return currentLang;
 }
 
