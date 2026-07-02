@@ -201,6 +201,7 @@ let presenting = false;
 let stream = null;
 let lastSnapshot = null;
 let publicBase = location.origin; // Adresse, unter der das Publikum beitritt
+let lastSaveState = null;         // 'saving' | 'saved' | 'failed' | null — für refreshLanguage()
 
 /* Läuft der Presenter auf localhost, ist diese Adresse für Handys nicht
    erreichbar — dann die LAN-Adresse des Servers verwenden (QR-Code!). */
@@ -267,6 +268,7 @@ function renderResultsPanel() {
 
 let saveTimer = null;
 function scheduleSave() {
+  lastSaveState = 'saving';
   $('saveState').textContent = t('presenter.save.saving');
   $('saveState').classList.remove('saved');
   clearTimeout(saveTimer);
@@ -276,9 +278,11 @@ function scheduleSave() {
 async function saveNow() {
   try {
     await api('PUT', `/api/presentations/${PRES_ID}/slides`, { slides: pres.slides }, TOKEN);
+    lastSaveState = 'saved';
     $('saveState').textContent = t('presenter.save.saved');
     $('saveState').classList.add('saved');
   } catch {
+    lastSaveState = 'failed';
     $('saveState').textContent = t('presenter.save.failed');
   }
 }
@@ -405,9 +409,10 @@ $('presTitle').addEventListener('input', async (e) => {
   saveTimer = setTimeout(async () => {
     try {
       await api('PUT', `/api/presentations/${PRES_ID}`, { title: e.target.value }, TOKEN);
+      lastSaveState = 'saved';
       $('saveState').textContent = t('presenter.save.saved');
       $('saveState').classList.add('saved');
-    } catch { $('saveState').textContent = t('presenter.save.failed'); }
+    } catch { lastSaveState = 'failed'; $('saveState').textContent = t('presenter.save.failed'); }
   }, 600);
 });
 
@@ -553,6 +558,10 @@ function refreshLanguage() {
   document.title = t('presenter.pageTitle');
   if (pres) {
     $('joinUrl').innerHTML = `${t('presenter.access.joinAt')} <b>${esc(publicBase.replace(/^https?:\/\//, ''))}</b>`;
+  }
+  if (lastSaveState) {
+    $('saveState').textContent = t('presenter.save.' + lastSaveState);
+    $('saveState').classList.toggle('saved', lastSaveState === 'saved');
   }
   if (pres && !presenting) {
     renderSlideList();
