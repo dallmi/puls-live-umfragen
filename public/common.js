@@ -86,14 +86,9 @@ function formatCode(code) {
   return String(code || '').replace(/^(\d{3})(\d{3})$/, '$1 $2');
 }
 
-const TYPE_META = {
-  choice:    { label: 'Multiple Choice', hint: 'Teilnehmende wählen eine oder mehrere Optionen.' },
-  wordcloud: { label: 'Wortwolke',       hint: 'Begriffe der Teilnehmenden bilden eine Wolke.' },
-  open:      { label: 'Offene Frage',    hint: 'Freitext-Antworten erscheinen als Antwort-Wand.' },
-  scale:     { label: 'Skala',           hint: 'Bewertung auf einer Zahlenskala, mit Durchschnitt.' },
-  qa:        { label: 'Q&A',             hint: 'Publikum stellt Fragen und stimmt darüber ab.' },
-  info:      { label: 'Infofolie',       hint: 'Statische Folie ohne Interaktion.' },
-};
+function typeMeta(type) {
+  return { label: t(`type.${type}.label`), hint: t(`type.${type}.hint`) };
+}
 
 /* Farbreihenfolge für Wortwolken: Markenfarb-Sequenz (Bordeaux → Grau → Bronze …) */
 const BRAND_SEQUENCE = ['#8A000A', '#7A7870', '#B98E2C', '#5A5D5C', '#946F29', '#8E8D83', '#6C5312', '#404040'];
@@ -111,7 +106,7 @@ function renderResults(container, slide, results, opts = {}) {
   if (!slide) return;
 
   if (!results) {
-    container.appendChild(el('<p class="results-hidden">Ergebnisse sind ausgeblendet.</p>'));
+    container.appendChild(el(`<p class="results-hidden">${t('results.hidden')}</p>`));
     return;
   }
 
@@ -128,7 +123,7 @@ function renderResults(container, slide, results, opts = {}) {
 function renderChoice(container, slide, results, opts) {
   const total = results.counts.reduce((a, b) => a + b, 0);
   const max = Math.max(...results.counts, 1);
-  const chart = el('<div class="barchart" role="img" aria-label="Abstimmungsergebnis"></div>');
+  const chart = el(`<div class="barchart" role="img" aria-label="${t('results.choice.aria')}"></div>`);
   (slide.options || []).forEach((option, i) => {
     const count = results.counts[i] || 0;
     const pct = total ? Math.round((count / total) * 100) : 0;
@@ -148,12 +143,12 @@ function renderChoice(container, slide, results, opts) {
     });
   });
   container.appendChild(chart);
-  container.appendChild(el(`<p class="results-meta">${results.voters} ${results.voters === 1 ? 'Stimme' : 'Stimmen'}</p>`));
+  container.appendChild(el(`<p class="results-meta">${t('results.choice.voters', { n: results.voters })}</p>`));
 }
 
 function renderWordcloud(container, results, opts) {
   if (!results.words.length) {
-    container.appendChild(el('<p class="results-empty">Noch keine Begriffe — die Wolke entsteht live.</p>'));
+    container.appendChild(el(`<p class="results-empty">${t('results.wordcloud.empty')}</p>`));
     return;
   }
   const maxCount = results.words[0].count;
@@ -172,20 +167,20 @@ function renderWordcloud(container, results, opts) {
     ));
   });
   container.appendChild(cloud);
-  container.appendChild(el(`<p class="results-meta">${results.voters} Teilnehmende · ${results.words.length} Begriffe</p>`));
+  container.appendChild(el(`<p class="results-meta">${t('results.wordcloud.meta', { voters: results.voters, words: results.words.length })}</p>`));
 }
 
 function renderOpen(container, results, opts) {
   if (!results.texts.length) {
-    container.appendChild(el('<p class="results-empty">Noch keine Antworten.</p>'));
+    container.appendChild(el(`<p class="results-empty">${t('results.open.empty')}</p>`));
     return;
   }
   const wall = el('<div class="answer-wall"></div>');
-  results.texts.forEach((t) => {
-    wall.appendChild(el(`<div class="answer-card">${esc(t.text)}</div>`));
+  results.texts.forEach((item) => {
+    wall.appendChild(el(`<div class="answer-card">${esc(item.text)}</div>`));
   });
   container.appendChild(wall);
-  container.appendChild(el(`<p class="results-meta">${results.texts.length} ${results.texts.length === 1 ? 'Antwort' : 'Antworten'}</p>`));
+  container.appendChild(el(`<p class="results-meta">${t('results.open.count', { n: results.texts.length })}</p>`));
 }
 
 function renderScale(container, slide, results, opts) {
@@ -193,7 +188,7 @@ function renderScale(container, slide, results, opts) {
   const avg = el(`
     <div class="scale-avg">
       <div class="scale-avg-value">${results.voters ? results.avg.toFixed(1) : '–'}</div>
-      <div class="scale-avg-label">Durchschnitt von ${slide.min} bis ${slide.max}</div>
+      <div class="scale-avg-label">${t('results.scale.avgLabel', { min: slide.min, max: slide.max })}</div>
     </div>`);
   wrap.appendChild(avg);
 
@@ -219,12 +214,12 @@ function renderScale(container, slide, results, opts) {
       <span>${esc(slide.minLabel || '')}</span><span>${esc(slide.maxLabel || '')}</span>
     </div>`));
   container.appendChild(wrap);
-  container.appendChild(el(`<p class="results-meta">${results.voters} ${results.voters === 1 ? 'Bewertung' : 'Bewertungen'}</p>`));
+  container.appendChild(el(`<p class="results-meta">${t('results.scale.count', { n: results.voters })}</p>`));
 }
 
 function renderQA(container, results, opts) {
   if (!results.questions.length) {
-    container.appendChild(el('<p class="results-empty">Noch keine Fragen aus dem Publikum.</p>'));
+    container.appendChild(el(`<p class="results-empty">${t('results.qa.empty')}</p>`));
     return;
   }
   const list = el('<div class="qa-list"></div>');
@@ -232,7 +227,7 @@ function renderQA(container, results, opts) {
     const upvoted = opts.upvoted && opts.upvoted.has(q.id);
     const row = el(`
       <div class="qa-item">
-        <button class="qa-vote${upvoted ? ' voted' : ''}" ${opts.onUpvote ? '' : 'disabled'} aria-label="Frage hochwählen">
+        <button class="qa-vote${upvoted ? ' voted' : ''}" ${opts.onUpvote ? '' : 'disabled'} aria-label="${t('results.qa.upvoteAria')}">
           <span class="qa-vote-count">${q.votes}</span>
           <span class="qa-vote-arrow">▲</span>
         </button>
@@ -244,7 +239,7 @@ function renderQA(container, results, opts) {
     list.appendChild(row);
   });
   container.appendChild(list);
-  container.appendChild(el(`<p class="results-meta">${results.questions.length} ${results.questions.length === 1 ? 'Frage' : 'Fragen'}</p>`));
+  container.appendChild(el(`<p class="results-meta">${t('results.qa.count', { n: results.questions.length })}</p>`));
 }
 
 function renderInfo(container, slide) {
