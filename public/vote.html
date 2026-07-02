@@ -14,6 +14,7 @@
   <a class="brand ds-title" href="/"><b>PULS</b></a>
   <div class="ds-header-controls">
     <span class="ds-subtitle" id="codeLabel"></span>
+    <span id="langToggle"></span>
   </div>
 </header>
 
@@ -21,14 +22,18 @@
   <div class="vote-shell" id="root">
     <div class="vote-waiting">
       <div class="ds-spinner"></div>
-      <p>Verbinde …</p>
+      <p data-i18n="vote.connecting">Verbinde …</p>
     </div>
   </div>
 </main>
 
+<script src="/i18n.js"></script>
 <script src="/common.js"></script>
 <script>
 'use strict';
+
+document.title = t('vote.pageTitle');
+initLangToggle(document.getElementById('langToggle'), refreshLanguage);
 
 const params = new URLSearchParams(location.search);
 const CODE = (params.get('code') || '').replace(/\D/g, '');
@@ -65,9 +70,9 @@ async function init() {
   } catch {
     root.innerHTML = `
       <div class="ds-empty">
-        <h3>Kein aktives Event</h3>
-        <p>Unter dem Code ${esc(formatCode(CODE))} wurde nichts gefunden.</p>
-        <p style="margin-top:1rem;"><a class="ds-btn" href="/">Zur Startseite</a></p>
+        <h3>${t('vote.noEvent.title')}</h3>
+        <p>${t('vote.noEvent.desc', { code: esc(formatCode(CODE)) })}</p>
+        <p style="margin-top:1rem;"><a class="ds-btn" href="/">${t('vote.noEvent.homeLink')}</a></p>
       </div>`;
   }
 }
@@ -96,7 +101,7 @@ function onSnapshot(s) {
 
 function updateMeta() {
   const pos = document.getElementById('posLabel');
-  if (pos && snap.slideCount) pos.textContent = `Folie ${snap.activeIndex + 1} von ${snap.slideCount}`;
+  if (pos && snap.slideCount) pos.textContent = t('common.slidePosition', { n: snap.activeIndex + 1, total: snap.slideCount });
 }
 
 // ---------------------------------------------------------------------------
@@ -112,7 +117,7 @@ function buildSlide() {
     root.appendChild(el(`
       <div class="vote-waiting">
         <div class="ds-spinner"></div>
-        <p>Warten auf den Start der Präsentation …</p>
+        <p>${t('vote.waitingStart')}</p>
       </div>`));
     return;
   }
@@ -123,13 +128,13 @@ function buildSlide() {
       <span class="pos" id="posLabel"></span>
     </div>`));
 
-  const questionText = slide.question || (TYPE_META[slide.type] || {}).label || '';
+  const questionText = slide.question || typeMeta(slide.type).label || '';
   if (questionText && slide.type !== 'info') {
     root.appendChild(el(`<div class="vote-question">${esc(questionText)}</div>`));
   }
 
   if (snap.votingLocked && slide.type !== 'info') {
-    root.appendChild(el('<div class="vote-locked">Die Abstimmung ist derzeit gesperrt.</div>'));
+    root.appendChild(el(`<div class="vote-locked">${t('vote.locked')}</div>`));
   }
 
   const form = el('<div id="voteForm"></div>');
@@ -150,7 +155,7 @@ function buildSlide() {
     if (slide.text) form.appendChild(el(`<div class="info-text">${esc(slide.text).replace(/\n/g, '<br>')}</div>`));
   }
 
-  root.appendChild(el('<div class="vote-results-block" id="resultsBlock" hidden><h3>Live-Ergebnis</h3><div id="resultsBox"></div></div>'));
+  root.appendChild(el(`<div class="vote-results-block" id="resultsBlock" hidden><h3>${t('vote.results.title')}</h3><div id="resultsBox"></div></div>`));
   updateMeta();
 }
 
@@ -196,7 +201,7 @@ function buildChoice(form, slide) {
   });
   form.appendChild(box);
 
-  const submitBtn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg" style="margin-top:1rem;" ${selection.length ? '' : 'disabled'}>Abstimmen</button>`);
+  const submitBtn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg" style="margin-top:1rem;" ${selection.length ? '' : 'disabled'}>${t('vote.choice.submit')}</button>`);
   const note = el('<div></div>');
   submitBtn.addEventListener('click', () => {
     submit(selection, () => {
@@ -213,7 +218,7 @@ function buildChoice(form, slide) {
     showResults();
   }
   function prevNoteText() {
-    return 'Stimme erfasst. Sie können Ihre Auswahl ändern und erneut abstimmen.';
+    return t('vote.choice.recorded');
   }
 }
 
@@ -224,25 +229,23 @@ function buildWordcloud(form, slide) {
 
   const field = el(`
     <div class="field">
-      <input type="text" maxlength="40" placeholder="Ihr Begriff" autocomplete="off">
+      <input type="text" maxlength="40" placeholder="${t('vote.wordcloud.placeholder')}" autocomplete="off">
       <div class="help" id="wcHelp"></div>
     </div>`);
   const input = field.querySelector('input');
   const help = field.querySelector('#wcHelp');
-  const btn = el('<button class="ds-btn ds-btn-primary ds-btn-lg">Senden</button>');
+  const btn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg">${t('common.send')}</button>`);
   const note = el('<div></div>');
 
   function refresh() {
     const r = remaining();
-    help.textContent = r > 0
-      ? `Noch ${r} ${r === 1 ? 'Begriff' : 'Begriffe'} möglich.`
-      : '';
+    help.textContent = r > 0 ? t('vote.wordcloud.remaining', { n: r }) : '';
     const done = r <= 0;
     input.disabled = done;
     btn.disabled = done;
     if (done) {
       note.innerHTML = '';
-      note.appendChild(submittedNote('Vielen Dank — Ihre Begriffe sind in der Wolke.'));
+      note.appendChild(submittedNote(t('vote.wordcloud.done')));
       showResults();
     }
   }
@@ -273,11 +276,11 @@ function buildWordcloud(form, slide) {
 function buildOpen(form, slide) {
   const field = el(`
     <div class="field">
-      <textarea rows="3" maxlength="500" placeholder="Ihre Antwort"></textarea>
-      <div class="help">Bis zu 5 Antworten pro Person.</div>
+      <textarea rows="3" maxlength="500" placeholder="${t('vote.open.placeholder')}"></textarea>
+      <div class="help">${t('vote.open.help')}</div>
     </div>`);
   const ta = field.querySelector('textarea');
-  const btn = el('<button class="ds-btn ds-btn-primary ds-btn-lg">Senden</button>');
+  const btn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg">${t('common.send')}</button>`);
   const note = el('<div></div>');
 
   btn.addEventListener('click', () => {
@@ -286,12 +289,12 @@ function buildOpen(form, slide) {
     submit(text, () => {
       ta.value = '';
       note.innerHTML = '';
-      note.appendChild(submittedNote('Antwort gesendet.'));
+      note.appendChild(submittedNote(t('vote.open.sent')));
       showResults();
     }, (e) => {
       if (e.message === 'limit_reached') {
         note.innerHTML = '';
-        note.appendChild(submittedNote('Limit erreicht — maximal 5 Antworten pro Person.'));
+        note.appendChild(submittedNote(t('vote.open.limitReached')));
       }
     });
   });
@@ -315,7 +318,7 @@ function buildScale(form, slide) {
       submit(v, () => {
         markVoted(slide.id, v);
         note.innerHTML = '';
-        note.appendChild(submittedNote('Bewertung erfasst. Tippen Sie erneut, um sie zu ändern.'));
+        note.appendChild(submittedNote(t('vote.scale.recorded')));
         showResults();
       });
     });
@@ -329,7 +332,7 @@ function buildScale(form, slide) {
   const note = el('<div></div>');
   form.appendChild(note);
   if (chosen !== null) {
-    note.appendChild(submittedNote('Bewertung erfasst. Tippen Sie erneut, um sie zu ändern.'));
+    note.appendChild(submittedNote(t('vote.scale.recorded')));
     showResults();
   }
 }
@@ -338,10 +341,10 @@ function buildScale(form, slide) {
 function buildQa(form, slide) {
   const field = el(`
     <div class="field">
-      <textarea rows="2" maxlength="500" placeholder="Ihre Frage an die Moderation"></textarea>
+      <textarea rows="2" maxlength="500" placeholder="${t('vote.qa.placeholder')}"></textarea>
     </div>`);
   const ta = field.querySelector('textarea');
-  const btn = el('<button class="ds-btn ds-btn-primary ds-btn-lg">Frage einreichen</button>');
+  const btn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg">${t('vote.qa.submit')}</button>`);
   const note = el('<div></div>');
 
   btn.addEventListener('click', () => {
@@ -350,11 +353,11 @@ function buildQa(form, slide) {
     submit(text, () => {
       ta.value = '';
       note.innerHTML = '';
-      note.appendChild(submittedNote('Frage eingereicht.'));
+      note.appendChild(submittedNote(t('vote.qa.sent')));
     }, (e) => {
       if (e.message === 'limit_reached') {
         note.innerHTML = '';
-        note.appendChild(submittedNote('Limit erreicht — maximal 5 Fragen pro Person.'));
+        note.appendChild(submittedNote(t('vote.qa.limitReached')));
       }
     });
   });
@@ -393,6 +396,14 @@ function updateResults() {
     },
     upvoted,
   } : {});
+}
+
+function refreshLanguage() {
+  document.title = t('vote.pageTitle');
+  if (!snap) return;
+  const wasVisible = resultsVisible;
+  buildSlide();
+  if (wasVisible) showResults();
 }
 </script>
 </body>
