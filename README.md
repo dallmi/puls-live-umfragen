@@ -4,7 +4,7 @@ Selbst-gehostete Alternative zu Mentimeter: interaktive Präsentationen mit Live
 Das Publikum tritt per sechsstelligem Code oder QR-Code bei und stimmt auf dem eigenen Gerät ab —
 die Ergebnisse erscheinen in Echtzeit auf der Präsentationsfläche.
 
-Gestaltet nach dem Corporate-Designsystem (Global Banking): Weiß dominiert, Corporate Red
+Gestaltet nach einem konservativen Corporate-Designsystem: Weiß dominiert, Corporate Red
 nur als Akzent, Diagramme in Bordeaux, Frutiger-Schriftstapel, keine Rundungen, keine Verläufe.
 
 ## Funktionen
@@ -63,13 +63,13 @@ public/
   vendor/qrcode.js   QR-Generator (MIT, lokal — kein CDN)
 ```
 
-**Entscheidungen mit Blick auf restriktive Umgebungen (z. B. UBS):**
+**Entscheidungen mit Blick auf restriktive Firmenumgebungen:**
 
 - **Null Abhängigkeiten** — kein `npm install`, kein Zugriff auf npm-Registry nötig.
 - **Keine externen Ressourcen** — keine CDNs, Fonts oder Tracker; alles wird vom eigenen Server ausgeliefert.
 - **SSE statt WebSockets** — Server-Sent Events sind gewöhnliches HTTP und kommen deutlich
   zuverlässiger durch Corporate-Proxies und Firewalls; Heartbeat alle 25 s hält Verbindungen offen.
-- **Frutiger-Schriftstapel** — auf UBS-Rechnern greift die installierte Frutiger, sonst Helvetica/Arial.
+- **Frutiger-Schriftstapel** — ist die Hausschrift auf dem Rechner installiert, wird sie verwendet, sonst Helvetica/Arial.
 - **Anonyme Teilnahme** — keine Anmeldung, keine personenbezogenen Daten; Teilnehmer erhalten
   nur eine zufällige Browser-ID (localStorage) zur Duplikat-Vermeidung.
 
@@ -85,7 +85,38 @@ public/
 - „Meine Präsentationen" liegt im Browser-localStorage: Moderationslink sichern, wenn der
   Browserwechsel möglich sein soll.
 
-## Betrieb in der UBS-Umgebung
+## Windows (Arbeitsrechner)
+
+Der Server nutzt ausschließlich Node-Built-ins und läuft unter Windows unverändert.
+
+**Schnellstart:** Projektordner auf den Rechner kopieren und **`start.bat` doppelklicken** —
+sie findet Node, startet den Server und öffnet den Browser. Anderer Port: `start.bat 8080`.
+
+**Wenn Node.js fehlt (zwei Wege):**
+
+1. *Mit Softwarekatalog:* Node.js LTS über das firmeninterne Software Center installieren
+   (bei den meisten Banken als Entwicklerwerkzeug freigegeben) — oder von
+   [nodejs.org](https://nodejs.org) per MSI-Installer.
+2. *Ohne Admin-Rechte:* Auf nodejs.org das **„Windows Binary (.zip)"** herunterladen,
+   entpacken und den Ordner als `node` neben die `start.bat` legen (so dass
+   `node\node.exe` existiert). Die `start.bat` erkennt und benutzt ihn automatisch —
+   keine Installation, keine Registry, keine Admin-Rechte.
+
+**Damit Kolleginnen und Kollegen beitreten können:**
+
+- Eigene IP ermitteln: `ipconfig` → „IPv4-Adresse" (z. B. `10.x.x.x`).
+- Teilnehmende öffnen `http://<ihre-ip>:3000` — QR-Code und Beitrittszeile im Presenter
+  zeigen die Adresse automatisch an.
+- Beim ersten Start fragt die Windows-Firewall ggf. nach Freigabe für `node.exe` →
+  „Zugriff zulassen". Erscheint kein Dialog (Gruppenrichtlinie), braucht es eine
+  eingehende Regel — mit Admin-Rechten:
+  `New-NetFirewallRule -DisplayName "PULS" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow`
+  — sonst über IT anfragen oder die App auf einem internen Server betreiben.
+- Handys im Gäste-WLAN erreichen einen Laptop im Firmen-LAN in der Regel **nicht**
+  (Netztrennung). Realistisch im Firmenumfeld: Teilnehmende nutzen ihren Firmen-Laptop/-Browser,
+  oder die App läuft auf einem internen Server, den beide Netze erreichen.
+
+## Betrieb im Firmennetz
 
 Realistischste Optionen, aufsteigend nach Aufwand:
 

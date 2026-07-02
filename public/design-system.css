@@ -1,5 +1,5 @@
 /* ============================================================================
-   Corporate Design System — Global Banking
+   Corporate Design System
    Single source of truth for color, type, layout, charts and tables.
    Derived from the corporate brand style guide. No brand name is used anywhere;
    all references are generic (--primary, --corp-*, .ds-*).
@@ -45,16 +45,16 @@
 
   /* --- Complex-chart sequence (canonical order 01 → 20) ------------------- */
   /* Use ONLY for complex charts where info is of equal weight. Default for
-     ≤10 series is the GB sequence below, not this rainbow. */
+     ≤10 series is the default sequence below, not this rainbow. */
   --chart-1:  #AF8626; --chart-2:  #00759E; --chart-3:  #879420; --chart-4:  #4B2D58;
   --chart-5:  #9F8865; --chart-6:  #2E476B; --chart-7:  #469A6C; --chart-8:  #AD3E4A;
   --chart-9:  #8489BD; --chart-10: #0C7EC6; --chart-11: #654D16; --chart-12: #804C95;
   --chart-13: #45999C; --chart-14: #4972AC; --chart-15: #CC707A; --chart-16: #295B40;
   --chart-17: #545A9C; --chart-18: #785E4A; --chart-19: #07476F; --chart-20: #620004;
 
-  /* --- GB default categorical sequence (≤10 series): red → grey → bronze -- */
-  --gb-1: #8A000A; --gb-2: #7A7870; --gb-3: #B98E2C; --gb-4: #CCCABC; --gb-5: #5A5D5C;
-  --gb-6: #946F29; --gb-7: #8E8D83; --gb-8: #6C5312; --gb-9: #B8B3A2; --gb-10: #404040;
+  /* --- Default categorical sequence (≤10 series): red → grey → bronze ----- */
+  --cat-1: #8A000A; --cat-2: #7A7870; --cat-3: #B98E2C; --cat-4: #CCCABC; --cat-5: #5A5D5C;
+  --cat-6: #946F29; --cat-7: #8E8D83; --cat-8: #6C5312; --cat-9: #B8B3A2; --cat-10: #404040;
 
   /* --- Geometry, type, elevation ------------------------------------------ */
   --radius: 2px; /* brand: no rounded corners; 2px max */

@@ -95,8 +95,8 @@ const TYPE_META = {
   info:      { label: 'Infofolie',       hint: 'Statische Folie ohne Interaktion.' },
 };
 
-/* Farbreihenfolge für Wortwolken: GB-Sequenz (Bordeaux → Grau → Bronze …) */
-const GB_SEQUENCE = ['#8A000A', '#7A7870', '#B98E2C', '#5A5D5C', '#946F29', '#8E8D83', '#6C5312', '#404040'];
+/* Farbreihenfolge für Wortwolken: Markenfarb-Sequenz (Bordeaux → Grau → Bronze …) */
+const BRAND_SEQUENCE = ['#8A000A', '#7A7870', '#B98E2C', '#5A5D5C', '#946F29', '#8E8D83', '#6C5312', '#404040'];
 
 // ---------------------------------------------------------------------------
 // Ergebnis-Rendering (Presenter & Publikum teilen sich diese Renderer)
@@ -166,7 +166,7 @@ function renderWordcloud(container, results, opts) {
     const scale = maxCount > 1 ? (w.count - 1) / (maxCount - 1) : 0;
     const size = 0.9 + scale * 2.6; // rem
     const rank = results.words.indexOf(w);
-    const color = GB_SEQUENCE[Math.min(rank, GB_SEQUENCE.length - 1)];
+    const color = BRAND_SEQUENCE[Math.min(rank, BRAND_SEQUENCE.length - 1)];
     cloud.appendChild(el(
       `<span class="cloud-word" style="font-size:${size.toFixed(2)}rem;color:${color}" title="${w.count}×">${esc(w.text)}</span>`
     ));
