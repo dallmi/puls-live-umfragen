@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PULS — Abstimmen</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/design-system.css">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<header class="ds-header">
+  <a class="brand ds-title" href="/"><b>PULS</b></a>
+  <div class="ds-header-controls">
+    <span class="ds-subtitle" id="codeLabel"></span>
+  </div>
+</header>
+
+<main>
+  <div class="vote-shell" id="root">
+    <div class="vote-waiting">
+      <div class="ds-spinner"></div>
+      <p>Verbinde …</p>
+    </div>
+  </div>
+</main>
+
+<script src="/common.js"></script>
+<script>
+'use strict';
+
+const params = new URLSearchParams(location.search);
+const CODE = (params.get('code') || '').replace(/\D/g, '');
+const root = document.getElementById('root');
+const PID = participantId();
+
+let presId = null;
+let snap = null;
+let renderedKey = null;   // slide.id + locked — Formular nur bei Änderung neu bauen
+let selection = [];       // Auswahl bei choice/scale
+const upvoted = new Set(JSON.parse(sessionStorage.getItem('puls.upvoted') || '[]'));
+
+function votedStore() {
+  return JSON.parse(sessionStorage.getItem('puls.voted.' + presId) || '{}');
+}
+function markVoted(slideId, value) {
+  const s = votedStore();
+  s[slideId] = value;
+  sessionStorage.setItem('puls.voted.' + presId, JSON.stringify(s));
+}
+
+if (!CODE || CODE.length !== 6) {
+  location.replace('/');
+} else {
+  document.getElementById('codeLabel').textContent = 'Code ' + formatCode(CODE);
+  init();
+}
+
+async function init() {
+  try {
+    const joined = await api('GET', `/api/join/${CODE}`);
+    presId = joined.id;
+    connectStream(presId, 'audience', onSnapshot);
+  } catch {
+    root.innerHTML = `
+      <div class="ds-empty">
+        <h3>Kein aktives Event</h3>
+        <p>Unter dem Code ${esc(formatCode(CODE))} wurde nichts gefunden.</p>
+        <p style="margin-top:1rem;"><a class="ds-btn" href="/">Zur Startseite</a></p>
+      </div>`;
+  }
+}
+
+function onSnapshot(s) {
+  snap = s;
+  const slide = s.slide;
+  let key = slide ? `${slide.id}|${s.votingLocked}` : 'none';
+
+  // Moderation hat die Antworten zurückgesetzt → lokalen Status verwerfen
+  if (slide && s.results && s.results.voters === 0 && votedStore()[slide.id] !== undefined) {
+    const store = votedStore();
+    delete store[slide.id];
+    sessionStorage.setItem('puls.voted.' + presId, JSON.stringify(store));
+    renderedKey = null;
+  }
+
+  if (key !== renderedKey) {
+    renderedKey = key;
+    selection = [];
+    buildSlide();
+  }
+  updateResults();
+  updateMeta();
+}
+
+function updateMeta() {
+  const pos = document.getElementById('posLabel');
+  if (pos && snap.slideCount) pos.textContent = `Folie ${snap.activeIndex + 1} von ${snap.slideCount}`;
+}
+
+// ---------------------------------------------------------------------------
+// Folie aufbauen
+// ---------------------------------------------------------------------------
+
+function buildSlide() {
+  const slide = snap.slide;
+  resultsVisible = false;
+  root.innerHTML = '';
+
+  if (!slide) {
+    root.appendChild(el(`
+      <div class="vote-waiting">
+        <div class="ds-spinner"></div>
+        <p>Warten auf den Start der Präsentation …</p>
+      </div>`));
+    return;
+  }
+
+  root.appendChild(el(`
+    <div class="vote-topline">
+      <span class="pt">${esc(snap.title)}</span>
+      <span class="pos" id="posLabel"></span>
+    </div>`));
+
+  const questionText = slide.question || (TYPE_META[slide.type] || {}).label || '';
+  if (questionText && slide.type !== 'info') {
+    root.appendChild(el(`<div class="vote-question">${esc(questionText)}</div>`));
+  }
+
+  if (snap.votingLocked && slide.type !== 'info') {
+    root.appendChild(el('<div class="vote-locked">Die Abstimmung ist derzeit gesperrt.</div>'));
+  }
+
+  const form = el('<div id="voteForm"></div>');
+  root.appendChild(form);
+
+  if (!snap.votingLocked) {
+    switch (slide.type) {
+      case 'choice':    buildChoice(form, slide); break;
+      case 'wordcloud': buildWordcloud(form, slide); break;
+      case 'open':      buildOpen(form, slide); break;
+      case 'scale':     buildScale(form, slide); break;
+      case 'qa':        buildQa(form, slide); break;
+    }
+  }
+
+  if (slide.type === 'info') {
+    if (slide.question) form.appendChild(el(`<div class="vote-question">${esc(slide.question)}</div>`));
+    if (slide.text) form.appendChild(el(`<div class="info-text">${esc(slide.text).replace(/\n/g, '<br>')}</div>`));
+  }
+
+  root.appendChild(el('<div class="vote-results-block" id="resultsBlock" hidden><h3>Live-Ergebnis</h3><div id="resultsBox"></div></div>'));
+  updateMeta();
+}
+
+function submittedNote(text) {
+  return el(`<div class="vote-submitted">${esc(text)}</div>`);
+}
+
+async function submit(value, onOk, onErr) {
+  try {
+    await api('POST', `/api/presentations/${presId}/answers`, {
+      slideId: snap.slide.id,
+      participantId: PID,
+      value,
+    });
+    onOk && onOk();
+  } catch (e) {
+    onErr && onErr(e);
+  }
+}
+
+// --- Multiple Choice ---------------------------------------------------------
+function buildChoice(form, slide) {
+  const prev = votedStore()[slide.id];
+  if (Array.isArray(prev)) selection = [...prev];
+
+  const box = el('<div class="vote-options"></div>');
+  (slide.options || []).forEach((opt, i) => {
+    const btn = el(`
+      <button class="vote-option${slide.multiple ? ' multi' : ''}${selection.includes(i) ? ' selected' : ''}">
+        <span class="mark"></span><span>${esc(opt)}</span>
+      </button>`);
+    btn.addEventListener('click', () => {
+      if (slide.multiple) {
+        selection = selection.includes(i) ? selection.filter((x) => x !== i) : [...selection, i];
+      } else {
+        selection = [i];
+      }
+      box.querySelectorAll('.vote-option').forEach((b, j) =>
+        b.classList.toggle('selected', selection.includes(j)));
+      submitBtn.disabled = selection.length === 0;
+    });
+    box.appendChild(btn);
+  });
+  form.appendChild(box);
+
+  const submitBtn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg" style="margin-top:1rem;" ${selection.length ? '' : 'disabled'}>Abstimmen</button>`);
+  const note = el('<div></div>');
+  submitBtn.addEventListener('click', () => {
+    submit(selection, () => {
+      markVoted(slide.id, selection);
+      note.innerHTML = '';
+      note.appendChild(submittedNote(prevNoteText()));
+      showResults();
+    });
+  });
+  form.appendChild(submitBtn);
+  form.appendChild(note);
+  if (Array.isArray(prev)) {
+    note.appendChild(submittedNote(prevNoteText()));
+    showResults();
+  }
+  function prevNoteText() {
+    return 'Stimme erfasst. Sie können Ihre Auswahl ändern und erneut abstimmen.';
+  }
+}
+
+// --- Wortwolke ------------------------------------------------------------------
+function buildWordcloud(form, slide) {
+  const sentCount = (votedStore()[slide.id] || []).length;
+  const remaining = () => (slide.maxWords || 1) - ((votedStore()[slide.id] || []).length);
+
+  const field = el(`
+    <div class="field">
+      <input type="text" maxlength="40" placeholder="Ihr Begriff" autocomplete="off">
+      <div class="help" id="wcHelp"></div>
+    </div>`);
+  const input = field.querySelector('input');
+  const help = field.querySelector('#wcHelp');
+  const btn = el('<button class="ds-btn ds-btn-primary ds-btn-lg">Senden</button>');
+  const note = el('<div></div>');
+
+  function refresh() {
+    const r = remaining();
+    help.textContent = r > 0
+      ? `Noch ${r} ${r === 1 ? 'Begriff' : 'Begriffe'} möglich.`
+      : '';
+    const done = r <= 0;
+    input.disabled = done;
+    btn.disabled = done;
+    if (done) {
+      note.innerHTML = '';
+      note.appendChild(submittedNote('Vielen Dank — Ihre Begriffe sind in der Wolke.'));
+      showResults();
+    }
+  }
+
+  btn.addEventListener('click', send);
+  input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+  function send() {
+    const word = input.value.trim();
+    if (!word) return;
+    submit([word], () => {
+      const s = votedStore();
+      s[slide.id] = [...(s[slide.id] || []), word];
+      sessionStorage.setItem('puls.voted.' + presId, JSON.stringify(s));
+      input.value = '';
+      showResults();
+      refresh();
+    });
+  }
+
+  form.appendChild(field);
+  form.appendChild(btn);
+  form.appendChild(note);
+  if (sentCount > 0) showResults();
+  refresh();
+}
+
+// --- Offene Frage ------------------------------------------------------------------
+function buildOpen(form, slide) {
+  const field = el(`
+    <div class="field">
+      <textarea rows="3" maxlength="500" placeholder="Ihre Antwort"></textarea>
+      <div class="help">Bis zu 5 Antworten pro Person.</div>
+    </div>`);
+  const ta = field.querySelector('textarea');
+  const btn = el('<button class="ds-btn ds-btn-primary ds-btn-lg">Senden</button>');
+  const note = el('<div></div>');
+
+  btn.addEventListener('click', () => {
+    const text = ta.value.trim();
+    if (!text) return;
+    submit(text, () => {
+      ta.value = '';
+      note.innerHTML = '';
+      note.appendChild(submittedNote('Antwort gesendet.'));
+      showResults();
+    }, (e) => {
+      if (e.message === 'limit_reached') {
+        note.innerHTML = '';
+        note.appendChild(submittedNote('Limit erreicht — maximal 5 Antworten pro Person.'));
+      }
+    });
+  });
+  form.appendChild(field);
+  form.appendChild(btn);
+  form.appendChild(note);
+}
+
+// --- Skala ---------------------------------------------------------------------------
+function buildScale(form, slide) {
+  const prev = votedStore()[slide.id];
+  let chosen = typeof prev === 'number' ? prev : null;
+
+  const picker = el('<div class="scale-picker"></div>');
+  for (let v = slide.min; v <= slide.max; v++) {
+    const b = el(`<button class="scale-btn${chosen === v ? ' selected' : ''}">${v}</button>`);
+    b.addEventListener('click', () => {
+      chosen = v;
+      picker.querySelectorAll('.scale-btn').forEach((x, idx) =>
+        x.classList.toggle('selected', idx + slide.min === v));
+      submit(v, () => {
+        markVoted(slide.id, v);
+        note.innerHTML = '';
+        note.appendChild(submittedNote('Bewertung erfasst. Tippen Sie erneut, um sie zu ändern.'));
+        showResults();
+      });
+    });
+    picker.appendChild(b);
+  }
+  form.appendChild(picker);
+  form.appendChild(el(`
+    <div class="scale-labels">
+      <span>${esc(slide.minLabel || '')}</span><span>${esc(slide.maxLabel || '')}</span>
+    </div>`));
+  const note = el('<div></div>');
+  form.appendChild(note);
+  if (chosen !== null) {
+    note.appendChild(submittedNote('Bewertung erfasst. Tippen Sie erneut, um sie zu ändern.'));
+    showResults();
+  }
+}
+
+// --- Q&A --------------------------------------------------------------------------------
+function buildQa(form, slide) {
+  const field = el(`
+    <div class="field">
+      <textarea rows="2" maxlength="500" placeholder="Ihre Frage an die Moderation"></textarea>
+    </div>`);
+  const ta = field.querySelector('textarea');
+  const btn = el('<button class="ds-btn ds-btn-primary ds-btn-lg">Frage einreichen</button>');
+  const note = el('<div></div>');
+
+  btn.addEventListener('click', () => {
+    const text = ta.value.trim();
+    if (!text) return;
+    submit(text, () => {
+      ta.value = '';
+      note.innerHTML = '';
+      note.appendChild(submittedNote('Frage eingereicht.'));
+    }, (e) => {
+      if (e.message === 'limit_reached') {
+        note.innerHTML = '';
+        note.appendChild(submittedNote('Limit erreicht — maximal 5 Fragen pro Person.'));
+      }
+    });
+  });
+  form.appendChild(field);
+  form.appendChild(btn);
+  form.appendChild(note);
+  showResults(); // Fragenliste ist bei Q&A immer sichtbar
+}
+
+// ---------------------------------------------------------------------------
+// Ergebnisse
+// ---------------------------------------------------------------------------
+
+let resultsVisible = false;
+function showResults() { resultsVisible = true; updateResults(); }
+
+function updateResults() {
+  const block = document.getElementById('resultsBlock');
+  const box = document.getElementById('resultsBox');
+  if (!block || !box || !snap.slide) return;
+
+  const isQa = snap.slide.type === 'qa';
+  if (!resultsVisible && !isQa) { block.hidden = true; return; }
+  if (snap.resultsHidden || !snap.results) { block.hidden = true; return; }
+
+  block.hidden = false;
+  renderResults(box, snap.slide, snap.results, isQa ? {
+    onUpvote: async (qid) => {
+      try {
+        await api('POST', `/api/presentations/${presId}/upvote`, {
+          slideId: snap.slide.id, participantId: PID, questionId: qid,
+        });
+        if (upvoted.has(qid)) upvoted.delete(qid); else upvoted.add(qid);
+        sessionStorage.setItem('puls.upvoted', JSON.stringify([...upvoted]));
+      } catch { /* ignorieren */ }
+    },
+    upvoted,
+  } : {});
+}
+</script>
+</body>
+</html>

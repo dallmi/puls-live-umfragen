@@ -1,0 +1,299 @@
+/* ============================================================================
+   Corporate Design System — Global Banking
+   Single source of truth for color, type, layout, charts and tables.
+   Derived from the corporate brand style guide. No brand name is used anywhere;
+   all references are generic (--primary, --corp-*, .ds-*).
+   v1.0
+   ============================================================================ */
+
+:root {
+  /* --- Primary ------------------------------------------------------------ */
+  --primary:      #E60000; /* Corporate Red — accents, headlines, CTAs, highlights */
+  --primary-dark: #8A000A; /* Bordeaux II — hover/active, second-level table headers */
+  --white:        #FFFFFF;
+  --black:        #000000;
+
+  /* --- Greys I–VI (warm-tinted — never cool/neutral greys) ---------------- */
+  --grey-1: #CCCABC; /* lightest — backgrounds/illustrations only (too light on white) */
+  --grey-2: #B8B3A2; /* light — backgrounds only */
+  --grey-3: #8E8D83; /* charts, tables, elements */
+  --grey-4: #7A7870; /* subtitles, muted text, labels */
+  --grey-5: #5A5D5C; /* body emphasis, average lines */
+  --grey-6: #404040; /* darkest — dark text, strong UI elements */
+
+  /* --- Bordeaux I–III (darker red complements) ---------------------------- */
+  --bordeaux-1: #BD000C; /* RAG red, error, highlight on pastel */
+  --bordeaux-2: #8A000A; /* hover/active, table group-header fill */
+  --bordeaux-3: #620004; /* deepest red accent */
+
+  /* --- Bronze I–III (graphic/diagram accents) ----------------------------- */
+  --bronze-1: #B98E2C;
+  --bronze-2: #946F29;
+  --bronze-3: #6C5312;
+
+  /* --- Backgrounds & surfaces --------------------------------------------- */
+  --bg:          #F7F7F5; /* page background — near-white warm tint */
+  --surface:     #ECEBE4; /* Pastel I — UI fills, headers, filter groups; only fill that may carry bold text */
+  --surface-alt: #F5F0E1; /* Pastel II — column highlights */
+  --row-alt:     #F8F7F2; /* alternating table rows only */
+
+  /* --- RAG / status ------------------------------------------------------- */
+  --success:       #6F7A1A; --success-bg: #F0F2E6; /* derived light tint */
+  --warning:       #E4A911; --warning-bg: #FDF6E3; /* derived light tint */
+  --danger:        #BD000C; --danger-bg:  #FBE6E7; /* derived light tint (= Bordeaux I) */
+  --info:          #0C7EC6; --info-bg:    #E5F1F8; /* derived light tint (Lake50) */
+
+  /* --- Complex-chart sequence (canonical order 01 → 20) ------------------- */
+  /* Use ONLY for complex charts where info is of equal weight. Default for
+     ≤10 series is the GB sequence below, not this rainbow. */
+  --chart-1:  #AF8626; --chart-2:  #00759E; --chart-3:  #879420; --chart-4:  #4B2D58;
+  --chart-5:  #9F8865; --chart-6:  #2E476B; --chart-7:  #469A6C; --chart-8:  #AD3E4A;
+  --chart-9:  #8489BD; --chart-10: #0C7EC6; --chart-11: #654D16; --chart-12: #804C95;
+  --chart-13: #45999C; --chart-14: #4972AC; --chart-15: #CC707A; --chart-16: #295B40;
+  --chart-17: #545A9C; --chart-18: #785E4A; --chart-19: #07476F; --chart-20: #620004;
+
+  /* --- GB default categorical sequence (≤10 series): red → grey → bronze -- */
+  --gb-1: #8A000A; --gb-2: #7A7870; --gb-3: #B98E2C; --gb-4: #CCCABC; --gb-5: #5A5D5C;
+  --gb-6: #946F29; --gb-7: #8E8D83; --gb-8: #6C5312; --gb-9: #B8B3A2; --gb-10: #404040;
+
+  /* --- Geometry, type, elevation ------------------------------------------ */
+  --radius: 2px; /* brand: no rounded corners; 2px max */
+  --font-sans: "Frutiger 45 Light", "Frutiger", "Helvetica Neue", Helvetica, Arial, "Segoe UI", Roboto, system-ui, sans-serif;
+  --line-thin:  1px solid var(--grey-1);   /* light divider */
+  --line-rule:  1px solid var(--black);    /* 0.75pt black table rule */
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.06);
+  --shadow-hover: 0 2px 8px rgba(0, 0, 0, 0.10);
+
+  /* spacing scale */
+  --sp-1: 0.25rem; --sp-2: 0.5rem; --sp-3: 0.75rem; --sp-4: 1rem; --sp-5: 1.5rem; --sp-6: 2rem;
+}
+
+/* ============================================================================
+   1. Reset & base
+   ============================================================================ */
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--grey-6);
+  line-height: 1.5;
+  font-weight: 400;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+a { color: var(--info); text-decoration: none; }
+a:hover { color: #07476F; text-decoration: underline; }
+
+/* ============================================================================
+   2. Typography — light headings, black, left-aligned, no all-caps, no underline
+   ============================================================================ */
+.ds-page-title  { font-size: 1.75rem; font-weight: 300; color: var(--black); line-height: 1.15; letter-spacing: -0.01em; }
+.ds-h2          { font-size: 1.25rem; font-weight: 600; color: var(--black); line-height: 1.25; }
+.ds-h3          { font-size: 1rem;    font-weight: 600; color: var(--black); line-height: 1.3; }
+.ds-subtitle    { font-size: 0.875rem; font-weight: 400; color: var(--grey-4); line-height: 1.4; }
+.ds-caption,
+.ds-footnote    { font-size: 0.6875rem; font-weight: 400; color: var(--grey-4); line-height: 1.4; }
+.ds-muted       { color: var(--grey-4); }
+.ds-accent      { color: var(--primary); }
+.ds-strong      { font-weight: 600; }
+
+/* ============================================================================
+   3. Header (white, thin bottom rule, red-accented title)
+   ============================================================================ */
+.ds-header {
+  background: var(--white);
+  color: var(--black);
+  padding: 0.75rem 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--primary);
+  box-shadow: var(--shadow-card);
+}
+.ds-header .ds-title {
+  font-size: 1.25rem;
+  font-weight: 300;
+  padding-left: 0.75rem;
+  border-left: 3px solid var(--primary);
+  color: var(--black);
+}
+.ds-header .ds-title b { font-weight: 600; }
+.ds-header-controls { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
+
+/* ============================================================================
+   4. Tabs (active = black text + red underline; square)
+   ============================================================================ */
+.ds-tabs {
+  display: flex; gap: 0; background: var(--white);
+  border-bottom: 1px solid var(--grey-1); overflow-x: auto;
+}
+.ds-tab {
+  padding: 0.75rem 1.25rem; background: transparent; border: none; cursor: pointer;
+  font-family: var(--font-sans); font-size: 0.85rem; font-weight: 500; color: var(--grey-4);
+  border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color 0.15s, border-color 0.15s;
+  white-space: nowrap;
+}
+.ds-tab:hover { color: var(--grey-6); }
+.ds-tab.active { color: var(--black); border-bottom-color: var(--primary); font-weight: 600; }
+
+/* ============================================================================
+   5. Cards & surfaces (white on grey page; subtle shadow)
+   ============================================================================ */
+.ds-card {
+  background: var(--white);
+  border: 1px solid var(--grey-1);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  padding: 1rem 1.25rem;
+}
+.ds-card-title {
+  font-size: 0.9rem; font-weight: 600; color: var(--black);
+  margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--grey-1);
+  display: flex; justify-content: space-between; align-items: center;
+}
+.ds-card-subtitle { font-size: 0.7rem; color: var(--grey-4); font-weight: 400; }
+
+/* status accent on the left edge of a card */
+.ds-card.accent-primary { border-left: 3px solid var(--primary); }
+.ds-card.accent-info    { border-left: 3px solid var(--info); }
+.ds-card.accent-success { border-left: 3px solid var(--success); }
+.ds-card.accent-warning { border-left: 3px solid var(--warning); }
+.ds-card.accent-neutral { border-left: 3px solid var(--grey-3); }
+
+/* ============================================================================
+   6. KPI cards — light-weight value, uppercase micro label, color accent bar
+   ============================================================================ */
+.ds-kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 0.75rem; }
+.ds-kpi {
+  background: var(--white); border: 1px solid var(--grey-1); border-radius: var(--radius);
+  border-top: 3px solid var(--grey-3); padding: 0.9rem 1rem; transition: box-shadow 0.2s;
+}
+.ds-kpi:hover { box-shadow: var(--shadow-hover); }
+.ds-kpi.highlight { border-top-color: var(--primary); }
+.ds-kpi.info      { border-top-color: var(--info); }
+.ds-kpi.success   { border-top-color: var(--success); }
+.ds-kpi.warning   { border-top-color: var(--warning); }
+.ds-kpi-label { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; color: var(--grey-4); margin-bottom: 0.35rem; }
+.ds-kpi-value { font-size: 1.6rem; font-weight: 300; color: var(--black); line-height: 1.15; }
+.ds-kpi-sub   { font-size: 0.6875rem; color: var(--grey-4); margin-top: 0.3rem; }
+
+/* grouped KPI collection card (label/value rows) */
+.ds-kpi-group {
+  background: var(--white); border: 1px solid var(--grey-1); border-left: 3px solid var(--grey-3);
+  border-radius: var(--radius); padding: 0.85rem 1rem;
+}
+.ds-kpi-group.reach       { border-left-color: var(--primary); }
+.ds-kpi-group.engagement  { border-left-color: var(--success); }
+.ds-kpi-group.submissions { border-left-color: var(--warning); }
+.ds-kpi-group.content     { border-left-color: var(--info); }
+.ds-kpi-group.outreach    { border-left-color: var(--primary-dark); }
+.ds-kpi-group-title { font-size: 0.6875rem; text-transform: uppercase; letter-spacing: 0.06em; font-weight: 600; color: var(--grey-4); margin-bottom: 0.5rem; }
+.ds-kpi-row { display: flex; justify-content: space-between; align-items: baseline; padding: 0.3rem 0; border-bottom: 1px solid var(--surface); }
+.ds-kpi-row:last-child { border-bottom: none; }
+.ds-kpi-row .v { font-size: 1.05rem; font-weight: 300; color: var(--black); }
+.ds-kpi-row.derived .v { font-weight: 400; color: var(--grey-4); }
+.ds-kpi-row .l { font-size: 0.78rem; color: var(--grey-4); text-align: right; }
+
+/* ============================================================================
+   7. Buttons — square (2px), red primary, white secondary
+   ============================================================================ */
+.ds-btn {
+  font-family: var(--font-sans); font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  padding: 0.4rem 0.85rem; border-radius: var(--radius); border: 1px solid var(--grey-1);
+  background: var(--white); color: var(--grey-6); transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.ds-btn:hover { background: var(--surface); border-color: var(--grey-3); }
+.ds-btn-primary { background: var(--primary); border-color: var(--primary); color: var(--white); }
+.ds-btn-primary:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+
+/* ============================================================================
+   8. Badges (RAG) — derived light backgrounds, solid text
+   ============================================================================ */
+.ds-badge {
+  display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.15rem 0.5rem;
+  border-radius: var(--radius); font-size: 0.7rem; font-weight: 600; line-height: 1.4;
+}
+.ds-badge.success { background: var(--success-bg); color: var(--success); }
+.ds-badge.warning { background: var(--warning-bg); color: #946F29; }
+.ds-badge.danger  { background: var(--danger-bg);  color: var(--danger); }
+.ds-badge.info    { background: var(--info-bg);    color: var(--info); }
+.ds-badge.neutral { background: var(--surface);    color: var(--grey-5); }
+
+/* ============================================================================
+   9. Tables — financial-table rules:
+      0.75pt(≈1px) black top/bottom rules, no vertical gridlines, left text /
+      right numbers, alternating Pastel rows, Bordeaux-2 group header (white,
+      NOT bold), "Total" (never all-caps) bounded by rules, red-bold highlight.
+   ============================================================================ */
+.ds-table-wrap { overflow-x: auto; }
+.ds-table { width: 100%; border-collapse: collapse; font-size: 0.8rem; color: var(--grey-6); }
+.ds-table thead th {
+  background: transparent; color: var(--grey-6); font-weight: 600; text-align: left;
+  padding: 0.5rem 0.75rem; border-bottom: 1px solid var(--black); /* 0.75pt rule */
+  position: sticky; top: 0; z-index: 1; white-space: nowrap;
+}
+.ds-table tbody td { padding: 0.45rem 0.75rem; border-bottom: 1px solid var(--surface); }
+.ds-table tbody tr:nth-child(even) td { background: var(--row-alt); }
+.ds-table tbody tr:hover td { background: var(--surface); }
+.ds-table .num, .ds-table th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.ds-table tbody tr:last-child td { border-bottom: 1px solid var(--black); } /* bottom rule */
+
+/* second-level / group header band */
+.ds-table th.group-header {
+  background: var(--bordeaux-2); color: var(--white); font-weight: 400; /* white, NOT bold */
+  text-align: center; border-right: 3px solid var(--white); border-bottom: none;
+}
+.ds-table th.group-header:last-child { border-right: none; }
+
+/* subtotal & total rows */
+.ds-table tr.subtotal td { font-weight: 600; border-top: 1px solid var(--grey-4); border-bottom: 1px solid var(--grey-4); }
+.ds-table tr.total td { font-weight: 600; border-top: 1px solid var(--black); border-bottom: 1px solid var(--black); }
+/* own-firm / key row highlight: red + bold */
+.ds-table tr.highlight td { color: var(--primary); font-weight: 600; }
+
+/* compact heatmap table (sequential single-hue ramp; the documented RAG/gradient-in-tables exception) */
+.ds-heatmap { border-collapse: collapse; font-size: 0.75rem; width: 100%; }
+.ds-heatmap th { padding: 0.4rem 0.5rem; background: var(--surface); font-size: 0.7rem; white-space: nowrap; font-weight: 600; color: var(--grey-6); }
+.ds-heatmap td { padding: 0.4rem 0.5rem; text-align: center; border: 1px solid var(--white); font-weight: 400; min-width: 56px; }
+.ds-heatmap td.row-header { text-align: left; font-weight: 600; background: var(--surface); min-width: 180px; }
+
+/* ============================================================================
+   10. Misc UI — status, spinner, filter pills, breadcrumb, empty state
+   ============================================================================ */
+.ds-status { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: var(--radius); }
+.ds-status .dot { width: 6px; height: 6px; border-radius: 50%; }
+.ds-status.loading { color: var(--grey-4); } .ds-status.loading .dot { background: var(--warning); animation: ds-pulse 1s infinite; }
+.ds-status.success { color: var(--success); } .ds-status.success .dot { background: var(--success); }
+.ds-status.error   { color: var(--danger); }  .ds-status.error .dot   { background: var(--danger); }
+@keyframes ds-pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+.ds-spinner { width: 40px; height: 40px; border: 3px solid var(--surface); border-top-color: var(--primary); border-radius: 50%; animation: ds-spin 1s linear infinite; }
+@keyframes ds-spin { to { transform: rotate(360deg); } }
+
+.ds-pill { padding: 0.3rem 0.6rem; background: var(--white); border: 1px solid var(--grey-1); border-radius: var(--radius); font-size: 0.75rem; color: var(--grey-4); cursor: pointer; }
+.ds-pill:hover { background: var(--surface); color: var(--grey-6); }
+.ds-pill.active { background: var(--primary); border-color: var(--primary); color: var(--white); }
+
+.ds-filter-tag { display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.5rem; background: var(--info-bg); color: var(--info); border-radius: var(--radius); font-size: 0.7rem; font-weight: 600; }
+
+.ds-breadcrumb { display: flex; align-items: center; gap: 0.25rem; font-size: 0.8rem; flex-wrap: wrap; }
+.ds-breadcrumb .item { color: var(--info); cursor: pointer; }
+.ds-breadcrumb .item:hover { text-decoration: underline; }
+.ds-breadcrumb .sep { color: var(--grey-4); }
+.ds-breadcrumb .current { color: var(--grey-6); font-weight: 600; }
+
+.ds-empty { text-align: center; padding: 3rem 1rem; color: var(--grey-4); }
+.ds-empty svg { width: 48px; height: 48px; stroke: var(--grey-1); stroke-width: 1.2; margin-bottom: 0.75rem; }
+.ds-empty h3 { color: var(--grey-6); font-weight: 600; margin-bottom: 0.25rem; }
+
+/* ============================================================================
+   11. Chart legend (square swatches, text right) & utilities
+   ============================================================================ */
+.ds-legend { display: flex; flex-wrap: wrap; gap: 0.75rem; font-size: 0.75rem; color: var(--grey-5); }
+.ds-legend .item { display: inline-flex; align-items: center; gap: 0.35rem; }
+.ds-legend .swatch { width: 11px; height: 11px; border-radius: 0; display: inline-block; }
+
+.text-right { text-align: right; }
+.text-center { text-align: center; }

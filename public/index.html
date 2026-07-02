@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PULS — Live-Umfragen</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/design-system.css">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<header class="ds-header">
+  <a class="brand ds-title" href="/"><b>PULS</b> Live-Umfragen</a>
+  <div class="ds-header-controls">
+    <span class="ds-subtitle">Interaktive Präsentationen mit Live-Abstimmung</span>
+  </div>
+</header>
+
+<main>
+  <div class="container">
+    <section class="hero">
+      <h1>Fragen stellen.<br><b>Antworten live sehen.</b></h1>
+      <p>Erstellen Sie interaktive Folien — Multiple Choice, Wortwolken, Skalen, offene Fragen und Q&amp;A.
+         Das Publikum stimmt per Code auf dem eigenen Gerät ab, die Ergebnisse erscheinen in Echtzeit.</p>
+    </section>
+
+    <div class="landing-grid">
+      <div class="ds-card accent-primary">
+        <div class="ds-card-title">An einer Präsentation teilnehmen</div>
+        <form id="joinForm">
+          <div class="field">
+            <label for="joinCode">Zugangscode</label>
+            <input class="code-input" id="joinCode" inputmode="numeric" autocomplete="off"
+                   maxlength="7" placeholder="000 000" aria-label="Sechsstelliger Zugangscode">
+          </div>
+          <button class="ds-btn ds-btn-primary ds-btn-lg" type="submit">Teilnehmen</button>
+          <div class="error-note" id="joinError"></div>
+        </form>
+      </div>
+
+      <div class="ds-card accent-neutral">
+        <div class="ds-card-title">Neue Präsentation erstellen</div>
+        <form id="createForm">
+          <div class="field">
+            <label for="presTitle">Titel</label>
+            <input type="text" id="presTitle" maxlength="120" placeholder="z. B. Team-Meeting Juli"
+                   autocomplete="off">
+            <div class="help">Sie erhalten einen Moderationslink und einen sechsstelligen Code für das Publikum.</div>
+          </div>
+          <button class="ds-btn ds-btn-lg" type="submit">Erstellen</button>
+          <div class="error-note" id="createError"></div>
+        </form>
+      </div>
+    </div>
+
+    <div class="ds-card my-presentations" id="mineCard" hidden>
+      <div class="ds-card-title">Meine Präsentationen</div>
+      <div id="mineList"></div>
+    </div>
+  </div>
+</main>
+
+<footer class="footer-note">
+  PULS läuft vollständig auf diesem Server — keine externen Dienste, keine Datenübertragung nach außen.
+</footer>
+
+<script src="/common.js"></script>
+<script>
+'use strict';
+
+// --- Beitreten -------------------------------------------------------------
+document.getElementById('joinForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('joinError');
+  errEl.textContent = '';
+  const code = document.getElementById('joinCode').value.replace(/\D/g, '');
+  if (code.length !== 6) {
+    errEl.textContent = 'Bitte einen sechsstelligen Code eingeben.';
+    return;
+  }
+  try {
+    await api('GET', `/api/join/${code}`);
+    location.href = `/vote.html?code=${code}`;
+  } catch {
+    errEl.textContent = 'Kein aktives Event mit diesem Code gefunden.';
+  }
+});
+
+// Eingabe formatieren: "123 456"
+document.getElementById('joinCode').addEventListener('input', (e) => {
+  const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
+  e.target.value = digits.length > 3 ? digits.slice(0, 3) + ' ' + digits.slice(3) : digits;
+});
+
+// --- Erstellen ---------------------------------------------------------------
+document.getElementById('createForm').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const errEl = document.getElementById('createError');
+  errEl.textContent = '';
+  try {
+    const pres = await api('POST', '/api/presentations', {
+      title: document.getElementById('presTitle').value,
+    });
+    const mine = JSON.parse(localStorage.getItem('puls.mine') || '[]');
+    mine.unshift({ id: pres.id, code: pres.code, title: pres.title, adminToken: pres.adminToken });
+    localStorage.setItem('puls.mine', JSON.stringify(mine.slice(0, 30)));
+    location.href = `/presenter.html?id=${pres.id}&token=${pres.adminToken}`;
+  } catch {
+    errEl.textContent = 'Erstellen fehlgeschlagen — läuft der Server noch?';
+  }
+});
+
+// --- Meine Präsentationen -------------------------------------------------------
+(function renderMine() {
+  const mine = JSON.parse(localStorage.getItem('puls.mine') || '[]');
+  if (!mine.length) return;
+  const card = document.getElementById('mineCard');
+  const list = document.getElementById('mineList');
+  card.hidden = false;
+  mine.forEach((p) => {
+    const row = el(`
+      <div class="item">
+        <div>
+          <div class="t">${esc(p.title)}</div>
+          <div class="c">Code ${formatCode(p.code)}</div>
+        </div>
+        <div style="display:flex; gap:0.4rem;">
+          <a class="ds-btn" href="/presenter.html?id=${encodeURIComponent(p.id)}&token=${encodeURIComponent(p.adminToken)}">Moderieren</a>
+        </div>
+      </div>`);
+    list.appendChild(row);
+  });
+})();
+</script>
+</body>
+</html>

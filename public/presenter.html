@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PULS — Moderation</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/design-system.css">
+<link rel="stylesheet" href="/app.css">
+</head>
+<body>
+
+<header class="ds-header" id="editorHeader">
+  <a class="brand ds-title" href="/"><b>PULS</b> Moderation</a>
+  <div class="ds-header-controls">
+    <span class="save-state" id="saveState"></span>
+    <button class="ds-btn" id="btnResetAll">Alle Antworten zurücksetzen</button>
+    <button class="ds-btn ds-btn-primary" id="btnPresent">Präsentieren</button>
+  </div>
+</header>
+
+<main>
+  <div class="container" id="editorRoot">
+    <div class="editor-layout">
+
+      <aside>
+        <div class="ds-card" style="margin-bottom: 1rem;">
+          <div class="ds-card-title">Zugang für das Publikum</div>
+          <div class="join-info-card">
+            <div>
+              <div class="join-code-big" id="joinCodeBig">— — —</div>
+              <div class="join-url" id="joinUrl"></div>
+            </div>
+            <div class="qr" id="qrBox"></div>
+          </div>
+        </div>
+
+        <div class="ds-card">
+          <div class="ds-card-title">
+            Folien
+            <button class="ds-btn" id="btnAddSlide">+ Neue Folie</button>
+          </div>
+          <div class="slide-list" id="slideList"></div>
+        </div>
+      </aside>
+
+      <section>
+        <div class="ds-card" style="margin-bottom: 1rem;">
+          <div class="ds-card-title">Präsentation</div>
+          <div class="field">
+            <label for="presTitle">Titel</label>
+            <input type="text" id="presTitle" maxlength="120">
+          </div>
+        </div>
+
+        <div class="ds-card" id="slideEditor" hidden>
+          <div class="ds-card-title">
+            <span id="slideEditorTitle">Folie</span>
+            <span style="display:flex; gap:0.4rem;">
+              <button class="ds-btn" id="btnMoveUp" title="Nach oben">↑</button>
+              <button class="ds-btn" id="btnMoveDown" title="Nach unten">↓</button>
+              <button class="ds-btn" id="btnResetSlide">Antworten zurücksetzen</button>
+              <button class="ds-btn ds-btn-danger" id="btnDeleteSlide">Löschen</button>
+            </span>
+          </div>
+
+          <div class="field">
+            <label for="slideType">Folientyp</label>
+            <select id="slideType"></select>
+            <div class="help" id="typeHint"></div>
+          </div>
+
+          <div class="field" id="fieldQuestion">
+            <label for="slideQuestion">Frage / Überschrift</label>
+            <input type="text" id="slideQuestion" maxlength="250" placeholder="Ihre Frage an das Publikum">
+          </div>
+
+          <!-- Multiple Choice -->
+          <div id="editChoice" hidden>
+            <div class="field">
+              <label>Antwortoptionen (max. 8)</label>
+              <div id="optionRows"></div>
+              <button class="ds-btn" id="btnAddOption" type="button">+ Option</button>
+            </div>
+            <div class="field">
+              <label style="display:flex; align-items:center; gap:0.5rem; font-weight:400;">
+                <input type="checkbox" id="optMultiple" style="width:auto;"> Mehrfachauswahl erlauben
+              </label>
+            </div>
+          </div>
+
+          <!-- Wortwolke -->
+          <div id="editWordcloud" hidden>
+            <div class="field">
+              <label for="optMaxWords">Begriffe pro Person</label>
+              <select id="optMaxWords">
+                <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Skala -->
+          <div id="editScale" hidden>
+            <div class="field">
+              <label for="optScaleMax">Skala von 1 bis …</label>
+              <select id="optScaleMax">
+                <option value="5">5</option><option value="6">6</option><option value="7">7</option>
+                <option value="10">10</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="optMinLabel">Beschriftung links (1)</label>
+              <input type="text" id="optMinLabel" maxlength="40" placeholder="trifft nicht zu">
+            </div>
+            <div class="field">
+              <label for="optMaxLabel">Beschriftung rechts (Maximum)</label>
+              <input type="text" id="optMaxLabel" maxlength="40" placeholder="trifft voll zu">
+            </div>
+          </div>
+
+          <!-- Infofolie -->
+          <div id="editInfo" hidden>
+            <div class="field">
+              <label for="optInfoText">Text</label>
+              <textarea id="optInfoText" rows="6" maxlength="2000"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <div class="ds-empty" id="noSlides" hidden>
+          <h3>Noch keine Folien</h3>
+          <p>Fügen Sie links die erste Folie hinzu.</p>
+        </div>
+      </section>
+    </div>
+  </div>
+</main>
+
+<!-- Präsentationsmodus -->
+<div class="present-mode" id="presentMode" hidden>
+  <div class="present-topbar">
+    <div class="join-line" id="presentJoinLine"></div>
+    <div style="display:flex; align-items:center; gap:1.25rem;">
+      <span class="audience-count" id="audienceCount"></span>
+      <button class="ds-btn" id="btnExitPresent">Beenden (Esc)</button>
+    </div>
+  </div>
+  <div class="present-body">
+    <div class="present-question" id="presentQuestion"></div>
+    <div class="present-results" id="presentResults"></div>
+  </div>
+  <div class="present-footer">
+    <div class="qr-small" id="presentQr"></div>
+    <div class="nav">
+      <button class="ds-btn" id="btnPrev">← Zurück</button>
+      <span class="pos" id="presentPos"></span>
+      <button class="ds-btn" id="btnNext">Weiter →</button>
+    </div>
+    <div style="display:flex; gap:0.5rem; align-items:center;">
+      <button class="ds-btn" id="btnToggleResults"></button>
+      <button class="ds-btn" id="btnToggleLock"></button>
+    </div>
+  </div>
+</div>
+
+<script src="/vendor/qrcode.js"></script>
+<script src="/common.js"></script>
+<script>
+'use strict';
+
+const params = new URLSearchParams(location.search);
+const PRES_ID = params.get('id');
+const TOKEN = params.get('token');
+
+if (!PRES_ID || !TOKEN) {
+  document.getElementById('editorRoot').innerHTML =
+    '<div class="ds-empty"><h3>Ungültiger Link</h3><p>Moderationslinks enthalten eine ID und ein Token.</p></div>';
+  throw new Error('missing params');
+}
+
+let pres = null;          // Serverzustand (Admin-Sicht)
+let selectedIdx = 0;      // im Editor ausgewählte Folie
+let presenting = false;
+let stream = null;
+let lastSnapshot = null;
+let publicBase = location.origin; // Adresse, unter der das Publikum beitritt
+
+/* Läuft der Presenter auf localhost, ist diese Adresse für Handys nicht
+   erreichbar — dann die LAN-Adresse des Servers verwenden (QR-Code!). */
+async function resolvePublicBase() {
+  if (!/^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname)) return;
+  try {
+    const info = await api('GET', '/api/server-info');
+    if (info.urls && info.urls.length) publicBase = info.urls[0];
+  } catch { /* localhost als Rückfall behalten */ }
+}
+
+const $ = (id) => document.getElementById(id);
+
+// ---------------------------------------------------------------------------
+// Laden & Speichern
+// ---------------------------------------------------------------------------
+
+async function load() {
+  await resolvePublicBase();
+  pres = await api('GET', `/api/presentations/${PRES_ID}`, undefined, TOKEN);
+  $('presTitle').value = pres.title;
+  $('joinCodeBig').textContent = formatCode(pres.code);
+  $('joinUrl').innerHTML = `Beitreten auf <b>${esc(publicBase.replace(/^https?:\/\//, ''))}</b>`;
+  renderQR($('qrBox'), `${publicBase}/${pres.code}`, 120);
+  renderSlideList();
+  renderSlideEditor();
+}
+
+let saveTimer = null;
+function scheduleSave() {
+  $('saveState').textContent = 'Speichert …';
+  $('saveState').classList.remove('saved');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveNow, 600);
+}
+
+async function saveNow() {
+  try {
+    await api('PUT', `/api/presentations/${PRES_ID}/slides`, { slides: pres.slides }, TOKEN);
+    $('saveState').textContent = 'Gespeichert';
+    $('saveState').classList.add('saved');
+  } catch {
+    $('saveState').textContent = 'Speichern fehlgeschlagen';
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Folienliste
+// ---------------------------------------------------------------------------
+
+function renderSlideList() {
+  const list = $('slideList');
+  list.innerHTML = '';
+  $('noSlides').hidden = pres.slides.length > 0;
+  $('slideEditor').hidden = pres.slides.length === 0;
+  pres.slides.forEach((s, i) => {
+    const item = el(`
+      <button class="slide-item${i === selectedIdx ? ' active' : ''}">
+        <span class="num">${i + 1}</span>
+        <span class="meta">
+          <span class="q">${esc(s.question || (TYPE_META[s.type] || {}).label || 'Folie')}</span><br>
+          <span class="ty">${(TYPE_META[s.type] || {}).label || s.type}</span>
+        </span>
+      </button>`);
+    item.addEventListener('click', () => {
+      selectedIdx = i;
+      renderSlideList();
+      renderSlideEditor();
+    });
+    list.appendChild(item);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Folien-Editor
+// ---------------------------------------------------------------------------
+
+function currentSlide() {
+  return pres.slides[selectedIdx];
+}
+
+function renderSlideEditor() {
+  const s = currentSlide();
+  if (!s) return;
+  $('slideEditorTitle').textContent = `Folie ${selectedIdx + 1} von ${pres.slides.length}`;
+
+  const typeSel = $('slideType');
+  typeSel.innerHTML = Object.entries(TYPE_META)
+    .map(([v, m]) => `<option value="${v}"${v === s.type ? ' selected' : ''}>${m.label}</option>`)
+    .join('');
+  $('typeHint').textContent = (TYPE_META[s.type] || {}).hint || '';
+  $('slideQuestion').value = s.question || '';
+
+  $('editChoice').hidden = s.type !== 'choice';
+  $('editWordcloud').hidden = s.type !== 'wordcloud';
+  $('editScale').hidden = s.type !== 'scale';
+  $('editInfo').hidden = s.type !== 'info';
+
+  if (s.type === 'choice') {
+    renderOptionRows();
+    $('optMultiple').checked = !!s.multiple;
+  }
+  if (s.type === 'wordcloud') $('optMaxWords').value = String(s.maxWords || 1);
+  if (s.type === 'scale') {
+    $('optScaleMax').value = String(s.max || 5);
+    $('optMinLabel').value = s.minLabel || '';
+    $('optMaxLabel').value = s.maxLabel || '';
+  }
+  if (s.type === 'info') $('optInfoText').value = s.text || '';
+}
+
+function renderOptionRows() {
+  const s = currentSlide();
+  const box = $('optionRows');
+  box.innerHTML = '';
+  (s.options || []).forEach((opt, i) => {
+    const row = el(`
+      <div class="option-row">
+        <input type="text" maxlength="120" value="${esc(opt)}" placeholder="Option ${i + 1}">
+        <button class="ds-btn" type="button" title="Option entfernen">×</button>
+      </div>`);
+    row.querySelector('input').addEventListener('input', (e) => {
+      s.options[i] = e.target.value;
+      scheduleSave();
+    });
+    row.querySelector('button').addEventListener('click', () => {
+      s.options.splice(i, 1);
+      renderOptionRows();
+      scheduleSave();
+    });
+    box.appendChild(row);
+  });
+  $('btnAddOption').disabled = (s.options || []).length >= 8;
+}
+
+// Editor-Eingaben → lokalen Zustand aktualisieren
+$('slideType').addEventListener('change', (e) => {
+  const s = currentSlide();
+  s.type = e.target.value;
+  if (s.type === 'choice' && !Array.isArray(s.options)) s.options = ['', ''];
+  if (s.type === 'wordcloud' && !s.maxWords) s.maxWords = 1;
+  if (s.type === 'scale') {
+    s.max = s.max || 5; s.min = 1;
+    s.minLabel = s.minLabel || ''; s.maxLabel = s.maxLabel || '';
+  }
+  renderSlideEditor();
+  renderSlideList();
+  scheduleSave();
+});
+$('slideQuestion').addEventListener('input', (e) => { currentSlide().question = e.target.value; renderSlideList(); scheduleSave(); });
+$('optMultiple').addEventListener('change', (e) => { currentSlide().multiple = e.target.checked; scheduleSave(); });
+$('optMaxWords').addEventListener('change', (e) => { currentSlide().maxWords = parseInt(e.target.value, 10); scheduleSave(); });
+$('optScaleMax').addEventListener('change', (e) => { currentSlide().max = parseInt(e.target.value, 10); scheduleSave(); });
+$('optMinLabel').addEventListener('input', (e) => { currentSlide().minLabel = e.target.value; scheduleSave(); });
+$('optMaxLabel').addEventListener('input', (e) => { currentSlide().maxLabel = e.target.value; scheduleSave(); });
+$('optInfoText').addEventListener('input', (e) => { currentSlide().text = e.target.value; scheduleSave(); });
+$('btnAddOption').addEventListener('click', () => {
+  const s = currentSlide();
+  s.options = s.options || [];
+  if (s.options.length < 8) { s.options.push(''); renderOptionRows(); scheduleSave(); }
+});
+
+$('presTitle').addEventListener('input', async (e) => {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    try {
+      await api('PUT', `/api/presentations/${PRES_ID}`, { title: e.target.value }, TOKEN);
+      $('saveState').textContent = 'Gespeichert';
+      $('saveState').classList.add('saved');
+    } catch { $('saveState').textContent = 'Speichern fehlgeschlagen'; }
+  }, 600);
+});
+
+$('btnAddSlide').addEventListener('click', () => {
+  pres.slides.push({
+    id: crypto.randomUUID(),
+    type: 'choice',
+    question: '',
+    options: ['', ''],
+    multiple: false,
+  });
+  selectedIdx = pres.slides.length - 1;
+  renderSlideList();
+  renderSlideEditor();
+  scheduleSave();
+});
+
+$('btnDeleteSlide').addEventListener('click', () => {
+  if (!confirm('Diese Folie und ihre Antworten löschen?')) return;
+  pres.slides.splice(selectedIdx, 1);
+  selectedIdx = Math.max(0, selectedIdx - 1);
+  renderSlideList();
+  renderSlideEditor();
+  scheduleSave();
+});
+
+$('btnMoveUp').addEventListener('click', () => moveSlide(-1));
+$('btnMoveDown').addEventListener('click', () => moveSlide(1));
+function moveSlide(delta) {
+  const j = selectedIdx + delta;
+  if (j < 0 || j >= pres.slides.length) return;
+  [pres.slides[selectedIdx], pres.slides[j]] = [pres.slides[j], pres.slides[selectedIdx]];
+  selectedIdx = j;
+  renderSlideList();
+  renderSlideEditor();
+  scheduleSave();
+}
+
+$('btnResetSlide').addEventListener('click', async () => {
+  if (!confirm('Alle Antworten dieser Folie löschen?')) return;
+  await api('POST', `/api/presentations/${PRES_ID}/reset`, { slideId: currentSlide().id }, TOKEN);
+});
+$('btnResetAll').addEventListener('click', async () => {
+  if (!confirm('Antworten aller Folien löschen? (z. B. nach einem Probelauf)')) return;
+  await api('POST', `/api/presentations/${PRES_ID}/reset`, {}, TOKEN);
+});
+
+// ---------------------------------------------------------------------------
+// Präsentationsmodus
+// ---------------------------------------------------------------------------
+
+$('btnPresent').addEventListener('click', enterPresent);
+$('btnExitPresent').addEventListener('click', exitPresent);
+$('btnPrev').addEventListener('click', () => navigate(-1));
+$('btnNext').addEventListener('click', () => navigate(1));
+$('btnToggleResults').addEventListener('click', () =>
+  setState({ resultsHidden: !(lastSnapshot && lastSnapshot.resultsHidden) }));
+$('btnToggleLock').addEventListener('click', () =>
+  setState({ votingLocked: !(lastSnapshot && lastSnapshot.votingLocked) }));
+
+async function enterPresent() {
+  await saveNow();
+  presenting = true;
+  $('presentMode').hidden = false;
+  document.body.style.overflow = 'hidden';
+  const joinUrl = publicBase.replace(/^https?:\/\//, '');
+  $('presentJoinLine').innerHTML =
+    `Beitreten auf <b>${esc(joinUrl)}</b> — Code <b>${formatCode(pres.code)}</b>`;
+  renderQR($('presentQr'), `${publicBase}/${pres.code}`, 64);
+  stream = connectStream(PRES_ID, 'presenter', onSnapshot);
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+}
+
+function exitPresent() {
+  presenting = false;
+  $('presentMode').hidden = true;
+  document.body.style.overflow = '';
+  if (stream) { stream.close(); stream = null; }
+  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  load(); // Editor aktualisieren
+}
+
+function navigate(delta) {
+  if (!lastSnapshot) return;
+  setState({ activeIndex: lastSnapshot.activeIndex + delta });
+}
+
+async function setState(patch) {
+  try { await api('POST', `/api/presentations/${PRES_ID}/state`, patch, TOKEN); }
+  catch { /* nächster Snapshot korrigiert die Anzeige */ }
+}
+
+function onSnapshot(snap) {
+  lastSnapshot = snap;
+  if (!presenting) return;
+  $('presentPos').textContent = snap.slideCount ? `${snap.activeIndex + 1} / ${snap.slideCount}` : '0 / 0';
+  $('audienceCount').textContent = `${snap.audience} ${snap.audience === 1 ? 'Person' : 'Personen'} verbunden`;
+  $('btnToggleResults').textContent = snap.resultsHidden ? 'Ergebnisse einblenden' : 'Ergebnisse ausblenden';
+  $('btnToggleLock').textContent = snap.votingLocked ? 'Abstimmung freigeben' : 'Abstimmung sperren';
+  $('btnPrev').disabled = snap.activeIndex <= 0;
+  $('btnNext').disabled = snap.activeIndex >= snap.slideCount - 1;
+
+  const q = $('presentQuestion');
+  if (!snap.slide) {
+    q.textContent = 'Keine Folien vorhanden.';
+    $('presentResults').innerHTML = '';
+    return;
+  }
+  q.textContent = snap.slide.question || (TYPE_META[snap.slide.type] || {}).label || '';
+  renderResults($('presentResults'), snap.slide, snap.results, {});
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!presenting) return;
+  if (e.key === 'ArrowRight' || e.key === 'PageDown') navigate(1);
+  if (e.key === 'ArrowLeft' || e.key === 'PageUp') navigate(-1);
+  if (e.key === 'Escape') exitPresent();
+});
+
+// ---------------------------------------------------------------------------
+
+load().catch((err) => {
+  document.getElementById('editorRoot').innerHTML = err.status === 403
+    ? '<div class="ds-empty"><h3>Kein Zugriff</h3><p>Das Moderations-Token ist ungültig.</p></div>'
+    : '<div class="ds-empty"><h3>Präsentation nicht gefunden</h3><p>Sie wurde möglicherweise gelöscht.</p></div>';
+});
+</script>
+</body>
+</html>
