@@ -551,6 +551,9 @@ document.addEventListener('keydown', (e) => {
 
 function refreshLanguage() {
   document.title = t('presenter.pageTitle');
+  if (pres) {
+    $('joinUrl').innerHTML = `${t('presenter.access.joinAt')} <b>${esc(publicBase.replace(/^https?:\/\//, ''))}</b>`;
+  }
   if (pres && !presenting) {
     renderSlideList();
     renderSlideEditor();
