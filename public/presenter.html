@@ -15,6 +15,8 @@
   <div class="ds-header-controls">
     <span class="save-state" id="saveState"></span>
     <button class="ds-btn" id="btnResetAll">Alle Antworten zurücksetzen</button>
+    <a class="ds-btn" id="btnExport" download>Excel-Export</a>
+    <button class="ds-btn" id="btnPptx">PowerPoint-Export</button>
     <button class="ds-btn ds-btn-primary" id="btnPresent">Präsentieren</button>
   </div>
 </header>
@@ -131,6 +133,14 @@
           <h3>Noch keine Folien</h3>
           <p>Fügen Sie links die erste Folie hinzu.</p>
         </div>
+
+        <div class="ds-card" id="resultsCard" style="margin-top: 1rem;" hidden>
+          <div class="ds-card-title">
+            Ergebnisse dieser Folie
+            <span class="ds-card-subtitle">aktualisiert sich live — bleibt auch nach der Präsentation erhalten</span>
+          </div>
+          <div id="editorResults"></div>
+        </div>
       </section>
     </div>
   </div>
@@ -164,6 +174,8 @@
 </div>
 
 <script src="/vendor/qrcode.js"></script>
+<script src="/vendor/pptxgen.bundle.js"></script>
+<script src="/pptx-export.js"></script>
 <script src="/common.js"></script>
 <script>
 'use strict';
@@ -207,9 +219,45 @@ async function load() {
   $('presTitle').value = pres.title;
   $('joinCodeBig').textContent = formatCode(pres.code);
   $('joinUrl').innerHTML = `Beitreten auf <b>${esc(publicBase.replace(/^https?:\/\//, ''))}</b>`;
+  $('btnExport').href = `/api/presentations/${PRES_ID}/export.xlsx?token=${encodeURIComponent(TOKEN)}`;
   renderQR($('qrBox'), `${publicBase}/${pres.code}`, 120);
+  latestResults = {};
+  for (const s of pres.slides) latestResults[s.id] = s.results;
   renderSlideList();
   renderSlideEditor();
+  // Ein Stream für Editor UND Präsentationsmodus: Ergebnisse bleiben überall live
+  if (!stream) stream = connectStream(PRES_ID, 'presenter', onSnapshot);
+}
+
+// --- Ergebnis-Panel im Editor ------------------------------------------------
+let latestResults = {};      // slideId -> results
+let resultsTimer = null;
+
+function scheduleResultsRefresh() {
+  clearTimeout(resultsTimer);
+  resultsTimer = setTimeout(refreshResults, 700);
+}
+
+async function refreshResults() {
+  try {
+    const full = await api('GET', `/api/presentations/${PRES_ID}`, undefined, TOKEN);
+    latestResults = {};
+    for (const s of full.slides) latestResults[s.id] = s.results;
+    renderResultsPanel();
+  } catch { /* nächster Snapshot versucht es erneut */ }
+}
+
+function renderResultsPanel() {
+  const card = $('resultsCard');
+  const slide = currentSlide();
+  if (!slide || slide.type === 'info') { card.hidden = true; return; }
+  card.hidden = false;
+  const results = latestResults[slide.id];
+  if (!results) {
+    $('editorResults').innerHTML = '<p class="results-empty">Noch keine Antworten.</p>';
+    return;
+  }
+  renderResults($('editorResults'), slide, results, {});
 }
 
 let saveTimer = null;
@@ -293,6 +341,7 @@ function renderSlideEditor() {
     $('optMaxLabel').value = s.maxLabel || '';
   }
   if (s.type === 'info') $('optInfoText').value = s.text || '';
+  renderResultsPanel();
 }
 
 function renderOptionRows() {
@@ -392,6 +441,24 @@ function moveSlide(delta) {
   scheduleSave();
 }
 
+// PowerPoint-Export: aktuelle Ergebnisse holen, Präsentation clientseitig bauen
+$('btnPptx').addEventListener('click', async () => {
+  const btn = $('btnPptx');
+  btn.disabled = true;
+  btn.textContent = 'Erstelle PPTX …';
+  try {
+    await saveNow();
+    await refreshResults();
+    const pptx = buildPulsPptx(PptxGenJS, pres, latestResults);
+    await pptx.writeFile({ fileName: `puls-${pres.code}-${new Date().toISOString().slice(0, 10)}.pptx` });
+  } catch (e) {
+    alert('PowerPoint-Export fehlgeschlagen: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'PowerPoint-Export';
+  }
+});
+
 $('btnResetSlide').addEventListener('click', async () => {
   if (!confirm('Alle Antworten dieser Folie löschen?')) return;
   await api('POST', `/api/presentations/${PRES_ID}/reset`, { slideId: currentSlide().id }, TOKEN);
@@ -423,7 +490,7 @@ async function enterPresent() {
   $('presentJoinLine').innerHTML =
     `Beitreten auf <b>${esc(joinUrl)}</b> — Code <b>${formatCode(pres.code)}</b>`;
   renderQR($('presentQr'), `${publicBase}/${pres.code}`, 64);
-  stream = connectStream(PRES_ID, 'presenter', onSnapshot);
+  if (lastSnapshot) onSnapshot(lastSnapshot);
   if (document.documentElement.requestFullscreen) {
     document.documentElement.requestFullscreen().catch(() => {});
   }
@@ -433,7 +500,6 @@ function exitPresent() {
   presenting = false;
   $('presentMode').hidden = true;
   document.body.style.overflow = '';
-  if (stream) { stream.close(); stream = null; }
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
   load(); // Editor aktualisieren
 }
@@ -450,6 +516,7 @@ async function setState(patch) {
 
 function onSnapshot(snap) {
   lastSnapshot = snap;
+  scheduleResultsRefresh(); // Ergebnis-Panel im Editor aktuell halten
   if (!presenting) return;
   $('presentPos').textContent = snap.slideCount ? `${snap.activeIndex + 1} / ${snap.slideCount}` : '0 / 0';
   $('audienceCount').textContent = `${snap.audience} ${snap.audience === 1 ? 'Person' : 'Personen'} verbunden`;

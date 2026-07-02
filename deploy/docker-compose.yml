@@ -1,0 +1,17 @@
+services:
+  puls:
+    image: node:22-alpine
+    container_name: puls
+    working_dir: /app
+    command: node server.js
+    user: "1000:1000"
+    environment:
+      - PORT=3000
+    volumes:
+      - ./server.js:/app/server.js:ro
+      - ./package.json:/app/package.json:ro
+      - ./public:/app/public:ro
+      - ./data:/app/data
+    ports:
+      - "127.0.0.1:3210:3000"
+    restart: unless-stopped
