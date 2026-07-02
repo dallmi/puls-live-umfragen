@@ -11,63 +11,68 @@
 <body>
 
 <header class="ds-header">
-  <a class="brand ds-title" href="/"><b>PULS</b> Live-Umfragen</a>
+  <a class="brand ds-title" href="/"><b>PULS</b> <span data-i18n="landing.brand">Live-Umfragen</span></a>
   <div class="ds-header-controls">
-    <span class="ds-subtitle">Interaktive Präsentationen mit Live-Abstimmung</span>
+    <span class="ds-subtitle" data-i18n="landing.subtitle">Interaktive Präsentationen mit Live-Abstimmung</span>
+    <span id="langToggle"></span>
   </div>
 </header>
 
 <main>
   <div class="container">
     <section class="hero">
-      <h1>Fragen stellen.<br><b>Antworten live sehen.</b></h1>
-      <p>Erstellen Sie interaktive Folien — Multiple Choice, Wortwolken, Skalen, offene Fragen und Q&amp;A.
+      <h1><span data-i18n="landing.hero.line1">Fragen stellen.</span><br><b data-i18n="landing.hero.line2">Antworten live sehen.</b></h1>
+      <p data-i18n="landing.hero.desc">Erstellen Sie interaktive Folien — Multiple Choice, Wortwolken, Skalen, offene Fragen und Q&amp;A.
          Das Publikum stimmt per Code auf dem eigenen Gerät ab, die Ergebnisse erscheinen in Echtzeit.</p>
     </section>
 
     <div class="landing-grid">
       <div class="ds-card accent-primary">
-        <div class="ds-card-title">An einer Präsentation teilnehmen</div>
+        <div class="ds-card-title" data-i18n="landing.join.title">An einer Präsentation teilnehmen</div>
         <form id="joinForm">
           <div class="field">
-            <label for="joinCode">Zugangscode</label>
+            <label for="joinCode" data-i18n="landing.join.codeLabel">Zugangscode</label>
             <input class="code-input" id="joinCode" inputmode="numeric" autocomplete="off"
-                   maxlength="7" placeholder="000 000" aria-label="Sechsstelliger Zugangscode">
+                   maxlength="7" placeholder="000 000" data-i18n-aria-label="landing.join.codeAria" aria-label="Sechsstelliger Zugangscode">
           </div>
-          <button class="ds-btn ds-btn-primary ds-btn-lg" type="submit">Teilnehmen</button>
+          <button class="ds-btn ds-btn-primary ds-btn-lg" type="submit" data-i18n="landing.join.submit">Teilnehmen</button>
           <div class="error-note" id="joinError"></div>
         </form>
       </div>
 
       <div class="ds-card accent-neutral">
-        <div class="ds-card-title">Neue Präsentation erstellen</div>
+        <div class="ds-card-title" data-i18n="landing.create.title">Neue Präsentation erstellen</div>
         <form id="createForm">
           <div class="field">
-            <label for="presTitle">Titel</label>
+            <label for="presTitle" data-i18n="field.title.label">Titel</label>
             <input type="text" id="presTitle" maxlength="120" placeholder="z. B. Team-Meeting Juli"
-                   autocomplete="off">
-            <div class="help">Sie erhalten einen Moderationslink und einen sechsstelligen Code für das Publikum.</div>
+                   data-i18n-placeholder="landing.create.titlePlaceholder" autocomplete="off">
+            <div class="help" data-i18n="landing.create.help">Sie erhalten einen Moderationslink und einen sechsstelligen Code für das Publikum.</div>
           </div>
-          <button class="ds-btn ds-btn-lg" type="submit">Erstellen</button>
+          <button class="ds-btn ds-btn-lg" type="submit" data-i18n="landing.create.submit">Erstellen</button>
           <div class="error-note" id="createError"></div>
         </form>
       </div>
     </div>
 
     <div class="ds-card my-presentations" id="mineCard" hidden>
-      <div class="ds-card-title">Meine Präsentationen</div>
+      <div class="ds-card-title" data-i18n="landing.mine.title">Meine Präsentationen</div>
       <div id="mineList"></div>
     </div>
   </div>
 </main>
 
-<footer class="footer-note">
+<footer class="footer-note" data-i18n="landing.footer">
   PULS läuft vollständig auf diesem Server — keine externen Dienste, keine Datenübertragung nach außen.
 </footer>
 
+<script src="/i18n.js"></script>
 <script src="/common.js"></script>
 <script>
 'use strict';
+
+document.title = t('landing.pageTitle');
+initLangToggle(document.getElementById('langToggle'), refreshLanguage);
 
 // --- Beitreten -------------------------------------------------------------
 document.getElementById('joinForm').addEventListener('submit', async (e) => {
@@ -76,14 +81,14 @@ document.getElementById('joinForm').addEventListener('submit', async (e) => {
   errEl.textContent = '';
   const code = document.getElementById('joinCode').value.replace(/\D/g, '');
   if (code.length !== 6) {
-    errEl.textContent = 'Bitte einen sechsstelligen Code eingeben.';
+    errEl.textContent = t('landing.join.errInvalid');
     return;
   }
   try {
     await api('GET', `/api/join/${code}`);
     location.href = `/vote.html?code=${code}`;
   } catch {
-    errEl.textContent = 'Kein aktives Event mit diesem Code gefunden.';
+    errEl.textContent = t('landing.join.errNotFound');
   }
 });
 
@@ -107,17 +112,18 @@ document.getElementById('createForm').addEventListener('submit', async (e) => {
     localStorage.setItem('puls.mine', JSON.stringify(mine.slice(0, 30)));
     location.href = `/presenter.html?id=${pres.id}&token=${pres.adminToken}`;
   } catch {
-    errEl.textContent = 'Erstellen fehlgeschlagen — läuft der Server noch?';
+    errEl.textContent = t('landing.create.errFailed');
   }
 });
 
 // --- Meine Präsentationen -------------------------------------------------------
-(function renderMine() {
+function renderMine() {
   const mine = JSON.parse(localStorage.getItem('puls.mine') || '[]');
-  if (!mine.length) return;
   const card = document.getElementById('mineCard');
   const list = document.getElementById('mineList');
+  if (!mine.length) { card.hidden = true; return; }
   card.hidden = false;
+  list.innerHTML = '';
   mine.forEach((p) => {
     const row = el(`
       <div class="item">
@@ -126,12 +132,18 @@ document.getElementById('createForm').addEventListener('submit', async (e) => {
           <div class="c">Code ${formatCode(p.code)}</div>
         </div>
         <div style="display:flex; gap:0.4rem;">
-          <a class="ds-btn" href="/presenter.html?id=${encodeURIComponent(p.id)}&token=${encodeURIComponent(p.adminToken)}">Moderieren</a>
+          <a class="ds-btn" href="/presenter.html?id=${encodeURIComponent(p.id)}&token=${encodeURIComponent(p.adminToken)}">${t('landing.mine.moderate')}</a>
         </div>
       </div>`);
     list.appendChild(row);
   });
-})();
+}
+renderMine();
+
+function refreshLanguage() {
+  document.title = t('landing.pageTitle');
+  renderMine();
+}
 </script>
 </body>
 </html>
