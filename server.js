@@ -26,6 +26,13 @@ const MAX_BODY = 100 * 1024; // 100 KB
 const MAX_TEXT_LEN = 500;
 const MAX_OPEN_ANSWERS_PER_USER = 5;
 
+// Ressourcengrenzen — verhindern, dass anonyme Nutzung Speicher/Platte des
+// (mit anderen Projekten geteilten) Servers erschöpft.
+const MAX_PRESENTATIONS = 2000;              // globale Obergrenze; älteste inaktive werden verdrängt
+const MAX_PARTICIPANTS_PER_SLIDE = 5000;     // je Folie — großzügig für Townhalls, aber begrenzt
+const PRESENTATION_TTL_MS = 60 * 24 * 60 * 60 * 1000; // 60 Tage ohne Aktivität → Aufräumen
+const CREATE_RATE = { windowMs: 60 * 60 * 1000, max: 30 }; // Neuanlage: 30 pro Stunde je IP
+
 // ---------------------------------------------------------------------------
 // Store & Persistenz
 // ---------------------------------------------------------------------------
@@ -61,6 +68,62 @@ function saveStore() {
 loadStore();
 
 // ---------------------------------------------------------------------------
+// Rate-Limiting & Client-IP (der Server läuft hinter nginx, das X-Forwarded-For setzt)
+// ---------------------------------------------------------------------------
+
+function clientIp(req) {
+  const xff = req.headers['x-forwarded-for'];
+  if (xff) return String(xff).split(',')[0].trim();
+  return req.socket?.remoteAddress || 'unknown';
+}
+
+/** Einfacher In-Memory-Sliding-Window-Zähler je Schlüssel. */
+const rateBuckets = new Map();
+function rateLimit(key, windowMs, max) {
+  const now = Date.now();
+  let hits = rateBuckets.get(key);
+  if (!hits) { hits = []; rateBuckets.set(key, hits); }
+  // abgelaufene Einträge entfernen
+  while (hits.length && hits[0] <= now - windowMs) hits.shift();
+  if (hits.length >= max) return false;
+  hits.push(now);
+  return true;
+}
+// Speicher des Rate-Limiters periodisch bereinigen
+setInterval(() => {
+  const now = Date.now();
+  for (const [key, hits] of rateBuckets) {
+    while (hits.length && hits[0] <= now - CREATE_RATE.windowMs) hits.shift();
+    if (!hits.length) rateBuckets.delete(key);
+  }
+}, 10 * 60 * 1000).unref?.();
+
+/** Alte, inaktive Präsentationen entfernen (TTL) und globale Obergrenze wahren. */
+function prunePresentations() {
+  const now = Date.now();
+  const entries = Object.values(store.presentations);
+  let removed = false;
+  for (const p of entries) {
+    const last = p.lastActivity || p.createdAt || 0;
+    if (now - last > PRESENTATION_TTL_MS) { delete store.presentations[p.id]; removed = true; }
+  }
+  // Falls trotzdem über der Grenze: älteste (nach lastActivity) verdrängen
+  const remaining = Object.values(store.presentations);
+  if (remaining.length > MAX_PRESENTATIONS) {
+    remaining
+      .sort((a, b) => (a.lastActivity || a.createdAt || 0) - (b.lastActivity || b.createdAt || 0))
+      .slice(0, remaining.length - MAX_PRESENTATIONS)
+      .forEach((p) => { delete store.presentations[p.id]; removed = true; });
+  }
+  if (removed) saveStore();
+}
+setInterval(prunePresentations, 60 * 60 * 1000).unref?.();
+
+function touch(pres) {
+  pres.lastActivity = Date.now();
+}
+
+// ---------------------------------------------------------------------------
 // Domänenlogik
 // ---------------------------------------------------------------------------
 
@@ -76,7 +139,10 @@ function newJoinCode() {
 }
 
 function createPresentation(title) {
+  // Vor dem Anlegen aufräumen, damit die Obergrenze eingehalten wird
+  if (Object.keys(store.presentations).length >= MAX_PRESENTATIONS) prunePresentations();
   const id = crypto.randomUUID();
+  const now = Date.now();
   const pres = {
     id,
     code: newJoinCode(),
@@ -86,7 +152,8 @@ function createPresentation(title) {
     activeIndex: 0,
     votingLocked: false,
     resultsHidden: false,
-    createdAt: Date.now(),
+    createdAt: now,
+    lastActivity: now,
   };
   store.presentations[id] = pres;
   saveStore();
@@ -317,9 +384,18 @@ function readBody(req) {
   });
 }
 
+/** Konstant-zeitiger Vergleich, um Timing-Seitenkanäle zu vermeiden. */
+function safeEqual(a, b) {
+  if (typeof a !== 'string' || typeof b !== 'string') return false;
+  const ba = Buffer.from(a);
+  const bb = Buffer.from(b);
+  if (ba.length !== bb.length) return false;
+  return crypto.timingSafeEqual(ba, bb);
+}
+
 function requireAdmin(pres, req, url) {
   const token = req.headers['x-admin-token'] || url.searchParams.get('token');
-  return pres && token && token === pres.adminToken;
+  return !!(pres && token && safeEqual(token, pres.adminToken));
 }
 
 const MIME = {
@@ -336,7 +412,9 @@ function serveStatic(res, urlPath) {
   let filePath = urlPath === '/' ? '/index.html' : urlPath;
   filePath = path.normalize(filePath).replace(/^(\.\.[/\\])+/, '');
   const abs = path.join(PUBLIC_DIR, filePath);
-  if (!abs.startsWith(PUBLIC_DIR)) {
+  // Grenze mit Trennzeichen prüfen, damit Geschwister-Verzeichnisse mit gleichem
+  // Präfix (z. B. /opt/puls/public-x) nicht erreichbar sind.
+  if (abs !== PUBLIC_DIR && !abs.startsWith(PUBLIC_DIR + path.sep)) {
     res.writeHead(403);
     return res.end('Forbidden');
   }
@@ -761,6 +839,9 @@ async function handleApi(req, res, url) {
 
   // POST /api/presentations — neue Präsentation
   if (p === '/api/presentations' && method === 'POST') {
+    if (!rateLimit(`create:${clientIp(req)}`, CREATE_RATE.windowMs, CREATE_RATE.max)) {
+      return sendJSON(res, 429, { error: 'rate_limited' });
+    }
     const body = await readBody(req);
     const pres = createPresentation(body.title);
     return sendJSON(res, 201, { id: pres.id, code: pres.code, adminToken: pres.adminToken, title: pres.title });
@@ -825,9 +906,14 @@ async function handleApi(req, res, url) {
     if (pres.votingLocked) return sendJSON(res, 423, { error: 'voting_locked' });
     const pid = clampText(String(body.participantId || ''), 64);
     if (!pid) return sendJSON(res, 400, { error: 'participant_missing' });
+    // Obergrenze für verschiedene Teilnehmer je Folie (verhindert unbegrenztes Wachstum)
+    if (!(pid in slide.answers) && Object.keys(slide.answers).length >= MAX_PARTICIPANTS_PER_SLIDE) {
+      return sendJSON(res, 429, { error: 'slide_full' });
+    }
 
     const ok = applyAnswer(slide, pid, body);
     if (!ok.ok) return sendJSON(res, 400, { error: ok.error });
+    touch(pres);
     saveStore();
     broadcast(pres.id);
     return sendJSON(res, 200, { ok: true });
@@ -852,6 +938,7 @@ async function handleApi(req, res, url) {
       }
     }
     if (!found) return sendJSON(res, 404, { error: 'question_unknown' });
+    touch(pres);
     saveStore();
     broadcast(pres.id);
     return sendJSON(res, 200, { ok: true });
@@ -876,6 +963,7 @@ async function handleApi(req, res, url) {
   if (sub === '' && method === 'PUT') {
     const body = await readBody(req);
     if (body.title !== undefined) pres.title = clampText(body.title, 120) || pres.title;
+    touch(pres);
     saveStore();
     broadcast(pres.id);
     return sendJSON(res, 200, { ok: true });
@@ -901,6 +989,7 @@ async function handleApi(req, res, url) {
       return slide;
     });
     pres.activeIndex = Math.min(pres.activeIndex, Math.max(0, pres.slides.length - 1));
+    touch(pres);
     saveStore();
     broadcast(pres.id);
     return sendJSON(res, 200, { ok: true, slides: pres.slides.map(publicSlide) });
@@ -914,6 +1003,7 @@ async function handleApi(req, res, url) {
     }
     if (typeof body.votingLocked === 'boolean') pres.votingLocked = body.votingLocked;
     if (typeof body.resultsHidden === 'boolean') pres.resultsHidden = body.resultsHidden;
+    touch(pres);
     saveStore();
     broadcast(pres.id);
     return sendJSON(res, 200, { ok: true });

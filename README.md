@@ -90,8 +90,13 @@ public/
 ## Sicherheit & Grenzen
 
 - Moderations-Aktionen sind durch ein zufälliges Token geschützt (im Moderationslink enthalten —
-  Link nicht weitergeben). Publikum kann ausschließlich antworten.
+  Link nicht weitergeben). Publikum kann ausschließlich antworten. Token-Vergleich konstant-zeitig.
 - Eingaben werden serverseitig begrenzt und clientseitig escaped (kein HTML-Injection über Antworten).
+- **Ressourcengrenzen** gegen Missbrauch: Neuanlage max. 30/Stunde je IP (HTTP 429),
+  globale Obergrenze an Präsentationen mit Verdrängung der ältesten, max. 5000 Teilnehmer je Folie,
+  automatisches Aufräumen nach 60 Tagen Inaktivität. Bei Betrieb hinter nginx zusätzlich
+  Rate-Limit und Security-Header (X-Frame-Options, X-Content-Type-Options, CSP, HSTS) —
+  siehe `deploy/nginx-puls.conf`.
 - Kein HTTPS eingebaut: Im Firmennetz hinter einen Reverse-Proxy (IIS/nginx/F5) mit TLS legen
   oder nur im vertrauten Netzsegment betreiben.
 - Ein-Prozess-Design mit In-Memory-Zustand: bewusst einfach gehalten, für Meetings/Townhalls
