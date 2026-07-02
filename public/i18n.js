@@ -243,6 +243,14 @@ function applyStaticTranslations(root) {
 // Umschalter-Widget
 // ---------------------------------------------------------------------------
 
+/* Kompakte, lokal eingebettete Flaggen-SVGs — keine Emoji (rendern auf
+   Windows-Firmenrechnern inkonsistent, teils nur als Buchstabencode) und
+   kein Icon-Font/CDN, passend zur Zero-Dependency-Vorgabe. */
+const FLAG_SVG = {
+  de: '<svg viewBox="0 0 5 3" width="20" height="14" aria-hidden="true"><rect width="5" height="3" fill="#000"/><rect width="5" height="2" y="1" fill="#D00"/><rect width="5" height="1" y="2" fill="#FFCE00"/></svg>',
+  en: '<svg viewBox="0 0 60 30" width="20" height="14" aria-hidden="true"><rect width="60" height="30" fill="#00247d"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#cf142b" stroke-width="2"/><path d="M30,0 V30 M0,15 H60" stroke="#fff" stroke-width="10"/><path d="M30,0 V30 M0,15 H60" stroke="#cf142b" stroke-width="6"/></svg>',
+};
+
 function initLangToggle(container, onChange) {
   if (!container) return;
   container.innerHTML = '';
@@ -251,7 +259,7 @@ function initLangToggle(container, onChange) {
   const buttons = options.map(([code, name]) => {
     const btn = document.createElement('button');
     btn.type = 'button';
-    btn.textContent = code.toUpperCase();
+    btn.innerHTML = FLAG_SVG[code];
     btn.setAttribute('aria-label', name);
     btn.addEventListener('click', () => {
       if (getLang() === code) return;
