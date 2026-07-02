@@ -1,6 +1,6 @@
-# PULS — Live-Umfragen (Mentimeter-Alternative)
+# PULS — Live-Umfragen
 
-Selbst-gehostete Alternative zu Mentimeter: interaktive Präsentationen mit Live-Abstimmung.
+Selbst-gehostete Lösung für interaktive Präsentationen mit Live-Abstimmung.
 Das Publikum tritt per sechsstelligem Code oder QR-Code bei und stimmt auf dem eigenen Gerät ab —
 die Ergebnisse erscheinen in Echtzeit auf der Präsentationsfläche.
 

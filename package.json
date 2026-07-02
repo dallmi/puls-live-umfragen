@@ -1,7 +1,7 @@
 {
   "name": "puls-live-umfragen",
   "version": "1.0.0",
-  "description": "Selbst-gehostete Live-Umfragen (Mentimeter-Alternative) — Zero-Dependency Node.js",
+  "description": "Selbst-gehostete Live-Umfragen — Zero-Dependency Node.js",
   "type": "module",
   "main": "server.js",
   "scripts": {

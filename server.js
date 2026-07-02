@@ -1,5 +1,5 @@
 /**
- * PULS — Live-Umfragen (Mentimeter-Klon)
+ * PULS — Live-Umfragen
  *
  * Zero-Dependency Node.js Server: nur Built-ins (http, fs, crypto, path).
  * Echtzeit über Server-Sent Events (SSE) — funktioniert hinter Corporate-Proxies.
