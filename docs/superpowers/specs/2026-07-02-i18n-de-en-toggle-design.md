@@ -13,10 +13,16 @@ unverändert.
 
 ## Sprachwahl & Persistenz
 
-- Gespeichert pro Gerät/Browser in `localStorage['puls.lang']` (`'de'` | `'en'`).
-- Beim allerersten Besuch ohne gespeicherten Wert: `navigator.language`
-  auswerten — beginnt sie mit `en`, startet die App auf Englisch, sonst
-  Deutsch. Danach gilt ausschliesslich die manuell gewählte Sprache.
+- Der Umschalter im Header ist auf jeder Seite jederzeit aktiv nutzbar —
+  beliebig oft hin- und herwechselbar, keine Einschränkung nach der ersten Wahl.
+- Gespeichert pro Gerät/Browser in `localStorage['puls.lang']` (`'de'` | `'en'`),
+  jede manuelle Umschaltung überschreibt den gespeicherten Wert sofort.
+- Beim allerersten Besuch (noch kein gespeicherter Wert vorhanden):
+  `navigator.language` auswerten — beginnt sie mit `en`, startet die App auf
+  Englisch, sonst Deutsch. Diese Auto-Erkennung läuft nur einmalig; sobald ein
+  Wert in `localStorage` steht (nach der ersten manuellen Wahl oder der
+  Auto-Erkennung), wird bei künftigen Besuchen dieser Wert verwendet statt
+  erneut `navigator.language` zu prüfen.
 - Kein Server-seitiger Zustand — reine Client-Einstellung, konsistent mit dem
   bestehenden Muster (`puls.participantId`, `puls.mine`, `puls.voted.*`).
 
