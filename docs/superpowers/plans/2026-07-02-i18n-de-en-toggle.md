@@ -14,10 +14,10 @@
 - Design system rules (from `public/design-system.css` / `public/app.css`): `--radius: 2px` max (no rounded corners), Corporate Red (`--primary`) used only as an accent, no gradients/3D effects.
 - `localStorage` keys already follow a `puls.*` prefix convention (`puls.participantId`, `puls.mine`, `puls.voted.*`, `puls.upvoted`); the new language key must follow it: `puls.lang`.
 - `server.js` returns language-neutral error codes (`not_found`, `limit_reached`, …) already — it must **not** be modified for this feature.
-- Out of scope (per approved spec `docs/superpowers/specs/2026-07-02-i18n-de-en-toggle-design.md`): server console logs, user-generated content (titles/questions/options), the server-side default-title fallback, README, and the generated `.xlsx` export file content (server-rendered, would require a `server.js` change — excluded by the same "server.js unverändert" boundary).
+- Out of scope (per approved spec `docs/superpowers/specs/2026-07-02-i18n-de-en-toggle-design.md`): server console logs, user-generated content (titles/questions/options), the server-side default-title fallback, README, and the generated export file *content* — both the server-rendered `.xlsx` (would require a `server.js` change — excluded by the same "server.js unverändert" boundary) and the client-rendered `.pptx` built by `public/pptx-export.js` (a self-contained generator with its own fixed strings, kept consistent with the `.xlsx` generator rather than arbitrarily making only one of the two export formats bilingual). Only the *button chrome* around these exports (labels, in-progress state text, failure alert) is in scope.
 - No automated test framework exists in this project (no `test` script, no test folder). Verification is manual/browser-driven: `node --check` for JS syntax sanity, and the Playwright MCP browser tools (`mcp__plugin_playwright_playwright__*`) for real behavioral checks against the running `node server.js`.
 - The language toggle must **not** appear in the fullscreen presentation mode (`#presentMode` in `presenter.html`) — only in the editor header, the landing page header, and the vote page header.
-- `public/presenter.html` currently has *uncommitted, in-progress* changes from a separate Excel-export feature (an "Excel-Export" button and a live "Ergebnisse dieser Folie" results panel in the editor). This plan's presenter.html task edits around that existing content and adds `data-i18n` coverage for it, but does not touch `server.js`'s export logic.
+- `public/presenter.html` was extended by a separate, now-committed Excel/PowerPoint-export feature (commit `dd372d6`): an "Excel-Export" link, a "PowerPoint-Export" button with an in-progress label swap, and a live "Ergebnisse dieser Folie" results panel in the editor. This plan's presenter.html task (Task 4) edits around that existing content and adds `data-i18n` coverage for its button chrome, but does not touch `server.js`'s export logic or `public/pptx-export.js`'s generated slide content.
 
 ---
 
@@ -81,6 +81,9 @@ const DICT = {
   'presenter.resetAll': { de: 'Alle Antworten zurücksetzen', en: 'Reset all answers' },
   'presenter.present': { de: 'Präsentieren', en: 'Present' },
   'presenter.export': { de: 'Excel-Export', en: 'Excel Export' },
+  'presenter.pptxExport': { de: 'PowerPoint-Export', en: 'PowerPoint Export' },
+  'presenter.pptxExporting': { de: 'Erstelle PPTX …', en: 'Creating PPTX…' },
+  'presenter.pptxFailed': { de: 'PowerPoint-Export fehlgeschlagen: ', en: 'PowerPoint export failed: ' },
   'presenter.accessCard.title': { de: 'Zugang für das Publikum', en: 'Audience access' },
   'presenter.slides.title': { de: 'Folien', en: 'Slides' },
   'presenter.slides.add': { de: '+ Neue Folie', en: '+ New slide' },
@@ -936,6 +939,7 @@ Replace:
     <span class="save-state" id="saveState"></span>
     <button class="ds-btn" id="btnResetAll">Alle Antworten zurücksetzen</button>
     <a class="ds-btn" id="btnExport" download>Excel-Export</a>
+    <button class="ds-btn" id="btnPptx">PowerPoint-Export</button>
     <button class="ds-btn ds-btn-primary" id="btnPresent">Präsentieren</button>
   </div>
 </header>
@@ -949,6 +953,7 @@ with:
     <span id="langToggle"></span>
     <button class="ds-btn" id="btnResetAll" data-i18n="presenter.resetAll">Alle Antworten zurücksetzen</button>
     <a class="ds-btn" id="btnExport" download data-i18n="presenter.export">Excel-Export</a>
+    <button class="ds-btn" id="btnPptx" data-i18n="presenter.pptxExport">PowerPoint-Export</button>
     <button class="ds-btn ds-btn-primary" id="btnPresent" data-i18n="presenter.present">Präsentieren</button>
   </div>
 </header>
@@ -1268,6 +1273,8 @@ with:
 Replace:
 ```html
 <script src="/vendor/qrcode.js"></script>
+<script src="/vendor/pptxgen.bundle.js"></script>
+<script src="/pptx-export.js"></script>
 <script src="/common.js"></script>
 <script>
 'use strict';
@@ -1285,6 +1292,8 @@ if (!PRES_ID || !TOKEN) {
 with:
 ```html
 <script src="/vendor/qrcode.js"></script>
+<script src="/vendor/pptxgen.bundle.js"></script>
+<script src="/pptx-export.js"></script>
 <script src="/i18n.js"></script>
 <script src="/common.js"></script>
 <script>
@@ -1303,6 +1312,8 @@ if (!PRES_ID || !TOKEN) {
   throw new Error('missing params');
 }
 ```
+
+Note: `i18n.js` must still load before `common.js` (which calls `t()` at parse time is not required, but `typeMeta()` calls `t()` at invocation time — any load order before first use works; placing it directly before `common.js` keeps the convention established on the other two pages). It does **not** need to load before `pptxgen.bundle.js`/`pptx-export.js` since those are out of scope for translation (see Global Constraints) and never call `t()`.
 
 - [ ] **Step 6: `load()` — join line, results-panel empty state**
 
@@ -1474,7 +1485,52 @@ with:
       </div>`);
 ```
 
-- [ ] **Step 10: Title-field save-state, confirm dialogs**
+- [ ] **Step 10: PowerPoint-export button label states and failure alert**
+
+Replace:
+```js
+// PowerPoint-Export: aktuelle Ergebnisse holen, Präsentation clientseitig bauen
+$('btnPptx').addEventListener('click', async () => {
+  const btn = $('btnPptx');
+  btn.disabled = true;
+  btn.textContent = 'Erstelle PPTX …';
+  try {
+    await saveNow();
+    await refreshResults();
+    const pptx = buildPulsPptx(PptxGenJS, pres, latestResults);
+    await pptx.writeFile({ fileName: `puls-${pres.code}-${new Date().toISOString().slice(0, 10)}.pptx` });
+  } catch (e) {
+    alert('PowerPoint-Export fehlgeschlagen: ' + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'PowerPoint-Export';
+  }
+});
+```
+with:
+```js
+// PowerPoint-Export: aktuelle Ergebnisse holen, Präsentation clientseitig bauen
+$('btnPptx').addEventListener('click', async () => {
+  const btn = $('btnPptx');
+  btn.disabled = true;
+  btn.textContent = t('presenter.pptxExporting');
+  try {
+    await saveNow();
+    await refreshResults();
+    const pptx = buildPulsPptx(PptxGenJS, pres, latestResults);
+    await pptx.writeFile({ fileName: `puls-${pres.code}-${new Date().toISOString().slice(0, 10)}.pptx` });
+  } catch (e) {
+    alert(t('presenter.pptxFailed') + e.message);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = t('presenter.pptxExport');
+  }
+});
+```
+
+The generated `.pptx` file itself (built by `buildPulsPptx()` in `public/pptx-export.js`) is out of scope — only this button's own label/alert text changes (see Global Constraints).
+
+- [ ] **Step 11: Title-field save-state, confirm dialogs**
 
 Replace:
 ```js
@@ -1537,7 +1593,7 @@ $('btnResetAll').addEventListener('click', async () => {
 });
 ```
 
-- [ ] **Step 11: `enterPresent()` join line, `onSnapshot()`, final `load().catch()`**
+- [ ] **Step 12: `enterPresent()` join line, `onSnapshot()`, final `load().catch()`**
 
 Replace:
 ```js
@@ -1626,23 +1682,23 @@ load().catch((err) => {
 
 `refreshLanguage()` only re-renders the editor view (`renderSlideList`/`renderSlideEditor`, which internally calls `renderResultsPanel()` too) — the fullscreen presentation mode has no toggle (per Global Constraints), so nothing there needs a language-switch refresh path.
 
-- [ ] **Step 12: Syntax-check the file**
+- [ ] **Step 13: Syntax-check the file**
 
 Run: `node --check <(sed -n '/<script>/,/<\/script>/p' public/presenter.html | sed '1d;$d')` — this is awkward for an HTML file with embedded `<script>` blocks; instead just verify via the browser in the next step, which will surface any JS syntax error as a console error immediately on page load.
 
-- [ ] **Step 13: Start the server for manual verification**
+- [ ] **Step 14: Start the server for manual verification**
 
 Run: `PORT=4173 node server.js &` then wait ~1s.
 
-- [ ] **Step 14: Create a presentation and add a slide of each type, via Playwright MCP**
+- [ ] **Step 15: Create a presentation and add a slide of each type, via Playwright MCP**
 
 1. Navigate to `http://localhost:4173/`.
 2. Fill the "create" title field with `E2E Test` and submit — this navigates to `presenter.html?id=...&token=...`.
-3. Confirm the editor header shows "Moderation" / the DE/EN toggle / "Alle Antworten zurücksetzen" / "Excel-Export" / "Präsentieren".
+3. Confirm the editor header shows "Moderation" / the DE/EN toggle / "Alle Antworten zurücksetzen" / "Excel-Export" / "PowerPoint-Export" / "Präsentieren".
 4. Click "+ Neue Folie" to add a default (`choice`) slide. Confirm the slide-type dropdown shows "Multiple Choice", the type hint reads the German hint text, and the "Antwortoptionen" label/placeholders are correct.
 5. Click the "EN" toggle button. Confirm (via `browser_snapshot`):
    - Header brand suffix now reads "Presenter Console".
-   - "Alle Antworten zurücksetzen" → "Reset all answers"; "Excel-Export" → "Excel Export"; "Präsentieren" → "Present".
+   - "Alle Antworten zurücksetzen" → "Reset all answers"; "Excel-Export" → "Excel Export"; "PowerPoint-Export" → "PowerPoint Export"; "Präsentieren" → "Present".
    - "Zugang für das Publikum" → "Audience access"; "Folien" → "Slides"; "+ Neue Folie" → "+ New slide".
    - Slide type dropdown now reads "Multiple Choice" (identical), and switching the `<select>` to `wordcloud`/`scale`/`qa`/`info`/`open` shows the correct English labels and hints for each.
    - "Noch keine Folien" empty state is not shown (a slide exists) — remove the slide via "Delete" (confirm dialog — use `mcp__plugin_playwright_playwright__browser_handle_dialog` to accept it, confirm the dialog text reads "Delete this slide and its answers?"), then confirm "No slides yet" / "Add your first slide on the left." appears.
@@ -1650,11 +1706,11 @@ Run: `PORT=4173 node server.js &` then wait ~1s.
 7. Add a `choice` slide again, enter a question and two options, click "Präsentieren" to enter fullscreen present mode. Confirm the language toggle is **not** present in `#presentMode`, and the footer buttons read "← Zurück" / "Weiter →" / "Ergebnisse ausblenden" / "Abstimmung sperren" (German, since DE was active when entering). Exit with Escape.
 8. Check `mcp__plugin_playwright_playwright__browser_console_messages` for errors — expect none.
 
-- [ ] **Step 15: Stop the server**
+- [ ] **Step 16: Stop the server**
 
 Run: `kill %1`.
 
-- [ ] **Step 16: Commit**
+- [ ] **Step 17: Commit**
 
 ```bash
 git add public/presenter.html
@@ -2301,4 +2357,4 @@ Only needed if Steps 1–3 surfaced something to fix. If everything already pass
 - **Spec coverage:** every section of `docs/superpowers/specs/2026-07-02-i18n-de-en-toggle-design.md` maps to a task — engine (Task 1), landing page + toggle CSS (Task 2), shared renderers (Task 3), presenter incl. present-mode exclusion (Task 4), vote page incl. results-preservation (Task 5), scope/out-of-scope verification (Task 6).
 - **Placeholder scan:** no TBD/TODO markers; every step has literal code, not a description of code.
 - **Type consistency:** `typeMeta(type)` (Task 3) is defined once and consumed with the same name/shape (`{label, hint}`) in Tasks 4 and 5. `SLIDE_TYPES` is defined once (Task 1, `i18n.js`) and consumed once (Task 4). `t(key, vars)` and `refreshLanguage()` are used consistently by name across all tasks.
-- **New consideration found while writing this plan:** `public/presenter.html` had uncommitted, unrelated Excel-export work already in the working tree when this plan was drafted (an "Excel-Export" button and a live per-slide results panel). Task 4 was re-derived against that current file content and adds `data-i18n` coverage for those new elements (`presenter.export`, `presenter.results.title/subtitle/empty` keys) without touching `server.js`'s export logic, consistent with the spec's "server.js unverändert" boundary.
+- **New consideration found while writing this plan:** `public/presenter.html` had unrelated Excel/PowerPoint-export work in progress while this plan was drafted (now committed as `dd372d6`): an "Excel-Export" link, a "PowerPoint-Export" button with an in-progress label swap, and a live per-slide results panel. Task 4 was re-derived against that committed file content and adds `data-i18n`/`t()` coverage for those new elements' button chrome (`presenter.export`, `presenter.pptxExport/pptxExporting/pptxFailed`, `presenter.results.title/subtitle/empty` keys) without touching `server.js`'s `.xlsx` logic or `public/pptx-export.js`'s generated `.pptx` content, consistent with the spec's "server.js unverändert" boundary and applied symmetrically to both export formats.
