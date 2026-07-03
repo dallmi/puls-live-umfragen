@@ -17,7 +17,7 @@ import crypto from 'node:crypto';
 import {
   SLIDE_TYPES, MAX_PARTICIPANTS_PER_SLIDE,
   clampText, sanitizeSlide, publicSlide, computeResults, applyAnswer, exportWorkbook,
-  pendingQuestions, moderateQuestion, leaderboard, publicQuizResult,
+  pendingQuestions, moderateQuestion, leaderboard, publicQuizResult, archiveSession,
 } from '../lib/domain.mjs';
 
 const TTL_SECONDS = 60 * 24 * 60 * 60;   // 60 Tage Inaktivität → automatischer Ablauf
@@ -285,6 +285,7 @@ export default async function handler(req, res) {
           collectNames: !!pres.collectNames,
           selfPaced: !!pres.selfPaced,
           leaderboard: pres.slides.some((s) => s.type === 'quiz') ? leaderboard(pres, 1000) : undefined,
+          sessions: pres.sessions || [],
           brand: brandOf(pres),
         });
       }
@@ -353,15 +354,20 @@ export default async function handler(req, res) {
       const body = await readJson(req);
       const emoji = String(body.emoji || '');
       if (!REACTIONS.includes(emoji)) return json(res, 400, { error: 'bad_emoji' });
-      const now = Date.now();
-      pres.reactions = (pres.reactions || []).filter((r) => r.ts > now - REACTION_WINDOW_MS);
-      pres.reactions.push({ emoji, ts: now });
-      if (pres.reactions.length > 60) pres.reactions = pres.reactions.slice(-60);
-      await putPres(pres); // serverlos: muss persistiert werden, sonst sieht der Presenter nichts
-      return json(res, 200, { ok: true });
+      const out = await withPresLock(pres.id, async () => {
+        const p = await getPres(pres.id);
+        if (!p) return { s: 404, j: { error: 'not_found' } };
+        const now = Date.now();
+        p.reactions = (p.reactions || []).filter((r) => r.ts > now - REACTION_WINDOW_MS);
+        p.reactions.push({ emoji, ts: now });
+        if (p.reactions.length > 60) p.reactions = p.reactions.slice(-60);
+        await putPres(p); // serverlos: muss persistiert werden, sonst sieht der Presenter nichts
+        return { s: 200, j: { ok: true } };
+      });
+      return json(res, out.s, out.j);
     }
 
-    // GET /api/presentations/:id/logo — Marken-Logo (öffentlich)
+    // GET /api/presentations/:id/logo — Marken-Logo (öffentlich, nur lesend)
     if (sub === '/logo' && method === 'GET') {
       const dm = /^data:([\w/+.-]+);base64,(.+)$/.exec(pres.brandLogo || '');
       if (!dm) { res.statusCode = 404; return res.end(); }
@@ -375,19 +381,24 @@ export default async function handler(req, res) {
     // POST /api/presentations/:id/identify — Anzeigenamen setzen (Publikum, nur wenn aktiviert)
     if (sub === '/identify' && method === 'POST') {
       const body = await readJson(req);
-      if (!pres.collectNames) return json(res, 409, { error: 'names_disabled' });
       const pid = clampText(String(body.participantId || ''), 64);
       if (!pid) return json(res, 400, { error: 'participant_missing' });
       const name = clampText(String(body.name || ''), 40);
       if (!name) return json(res, 400, { error: 'name_missing' });
-      if (!pres.names) pres.names = {};
-      if (!(pid in pres.names) && Object.keys(pres.names).length >= MAX_PARTICIPANTS_PER_SLIDE) {
-        return json(res, 429, { error: 'full' });
-      }
-      pres.names[pid] = name;
-      pres.lastActivity = Date.now();
-      await putPres(pres);
-      return json(res, 200, { ok: true, name });
+      const out = await withPresLock(pres.id, async () => {
+        const p = await getPres(pres.id);
+        if (!p) return { s: 404, j: { error: 'not_found' } };
+        if (!p.collectNames) return { s: 409, j: { error: 'names_disabled' } };
+        if (!p.names) p.names = {};
+        if (!(pid in p.names) && Object.keys(p.names).length >= MAX_PARTICIPANTS_PER_SLIDE) {
+          return { s: 429, j: { error: 'full' } };
+        }
+        p.names[pid] = name;
+        p.lastActivity = Date.now();
+        await putPres(p);
+        return { s: 200, j: { ok: true, name } };
+      });
+      return json(res, out.s, out.j);
     }
 
     // Ab hier: nur Admin
@@ -402,31 +413,7 @@ export default async function handler(req, res) {
       return res.end(buf);
     }
 
-    if (sub === '' && method === 'PUT') {
-      const body = await readJson(req);
-      if (body.title !== undefined) pres.title = clampText(body.title, 120) || pres.title;
-      pres.lastActivity = Date.now();
-      await putPres(pres);
-      return json(res, 200, { ok: true });
-    }
-
-    // POST /api/presentations/:id/brand — Akzentfarbe + Logo (Admin)
-    if (sub === '/brand' && method === 'POST') {
-      const body = await readJson(req);
-      if (body.color === null || body.color === '') pres.brandColor = null;
-      else if (typeof body.color === 'string' && HEX_COLOR.test(body.color)) pres.brandColor = body.color;
-      if (body.logo === null || body.logo === '') pres.brandLogo = null;
-      // Nur Raster-Formate — SVG könnte bei direktem /logo-Aufruf Skripte ausführen (XSS).
-      else if (typeof body.logo === 'string' && /^data:image\/(png|jpeg|gif|webp);base64,/.test(body.logo)) {
-        if (body.logo.length > MAX_LOGO_BYTES) return json(res, 413, { error: 'logo_too_large' });
-        pres.brandLogo = body.logo;
-      }
-      pres.lastActivity = Date.now();
-      await putPres(pres);
-      return json(res, 200, { ok: true, brand: brandOf(pres) });
-    }
-
-    // GET /api/presentations/:id/moderation — ausstehende Q&A-Fragen der aktiven Folie (Admin)
+    // GET /api/presentations/:id/moderation — ausstehende Q&A-Fragen der aktiven Folie (Admin, nur lesend)
     if (sub === '/moderation' && method === 'GET') {
       const slide = pres.slides[pres.activeIndex] || null;
       const moderated = !!(slide && slide.type === 'qa' && slide.moderated);
@@ -437,77 +424,141 @@ export default async function handler(req, res) {
       });
     }
 
-    // POST /api/presentations/:id/moderate — Frage freigeben/entfernen (Admin)
+    // Alle schreibenden Admin-Endpunkte laufen unter dem Lock (frisch lesen → ändern → schreiben),
+    // damit gleichzeitige Publikums-/Admin-Schreibvorgänge sich nicht gegenseitig überschreiben.
+    if (sub === '' && method === 'PUT') {
+      const body = await readJson(req);
+      const out = await withPresLock(pres.id, async () => {
+        const p = await getPres(pres.id);
+        if (!p) return { s: 404, j: { error: 'not_found' } };
+        if (body.title !== undefined) p.title = clampText(body.title, 120) || p.title;
+        p.lastActivity = Date.now();
+        await putPres(p);
+        return { s: 200, j: { ok: true } };
+      });
+      return json(res, out.s, out.j);
+    }
+
+    if (sub === '/brand' && method === 'POST') {
+      const body = await readJson(req);
+      if (typeof body.logo === 'string' && /^data:image\/(png|jpeg|gif|webp);base64,/.test(body.logo) && body.logo.length > MAX_LOGO_BYTES) {
+        return json(res, 413, { error: 'logo_too_large' });
+      }
+      const out = await withPresLock(pres.id, async () => {
+        const p = await getPres(pres.id);
+        if (!p) return { s: 404, j: { error: 'not_found' } };
+        if (body.color === null || body.color === '') p.brandColor = null;
+        else if (typeof body.color === 'string' && HEX_COLOR.test(body.color)) p.brandColor = body.color;
+        if (body.logo === null || body.logo === '') p.brandLogo = null;
+        // Nur Raster-Formate — SVG könnte bei direktem /logo-Aufruf Skripte ausführen (XSS).
+        else if (typeof body.logo === 'string' && /^data:image\/(png|jpeg|gif|webp);base64,/.test(body.logo)) p.brandLogo = body.logo;
+        p.lastActivity = Date.now();
+        await putPres(p);
+        return { s: 200, j: { ok: true, brand: brandOf(p) } };
+      });
+      return json(res, out.s, out.j);
+    }
+
     if (sub === '/moderate' && method === 'POST') {
       const body = await readJson(req);
-      const slide = pres.slides.find((s) => s.id === body.slideId) || pres.slides[pres.activeIndex];
-      if (!slide || slide.type !== 'qa') return json(res, 404, { error: 'slide_unknown' });
       const action = body.action === 'approve' || body.action === 'reject' ? body.action : null;
       if (!action) return json(res, 400, { error: 'bad_action' });
-      if (!moderateQuestion(slide, String(body.itemId || ''), action)) {
-        return json(res, 404, { error: 'question_unknown' });
-      }
-      pres.lastActivity = Date.now();
-      await putPres(pres);
-      return json(res, 200, { ok: true, pending: pendingQuestions(slide) });
+      const out = await withPresLock(pres.id, async () => {
+        const p = await getPres(pres.id);
+        if (!p) return { s: 404, j: { error: 'not_found' } };
+        const slide = p.slides.find((s) => s.id === body.slideId) || p.slides[p.activeIndex];
+        if (!slide || slide.type !== 'qa') return { s: 404, j: { error: 'slide_unknown' } };
+        if (!moderateQuestion(slide, String(body.itemId || ''), action)) return { s: 404, j: { error: 'question_unknown' } };
+        p.lastActivity = Date.now();
+        await putPres(p);
+        return { s: 200, j: { ok: true, pending: pendingQuestions(slide) } };
+      });
+      return json(res, out.s, out.j);
     }
 
     if (sub === '' && method === 'DELETE') {
-      await delPres(pres);
-      return json(res, 200, { ok: true });
+      const out = await withPresLock(pres.id, async () => {
+        const p = await getPres(pres.id);
+        if (p) await delPres(p);
+        return { s: 200, j: { ok: true } };
+      });
+      return json(res, out.s, out.j);
     }
 
     if (sub === '/slides' && method === 'PUT') {
       const body = await readJson(req);
       if (!Array.isArray(body.slides)) return json(res, 400, { error: 'slides_missing' });
-      const existing = new Map(pres.slides.map((s) => [s.id, s]));
-      pres.slides = body.slides.slice(0, 50).map((input) => {
-        const slide = sanitizeSlide(input);
-        const prev = existing.get(slide.id);
-        slide.answers = prev ? prev.answers : {};
-        if (prev && prev.startedAt && slide.type === 'quiz') slide.startedAt = prev.startedAt;
-        return slide;
+      const out = await withPresLock(pres.id, async () => {
+        const p = await getPres(pres.id);
+        if (!p) return { s: 404, j: { error: 'not_found' } };
+        const existing = new Map(p.slides.map((s) => [s.id, s]));
+        p.slides = body.slides.slice(0, 50).map((input) => {
+          const slide = sanitizeSlide(input);
+          const prev = existing.get(slide.id);
+          slide.answers = prev ? prev.answers : {};
+          if (prev && prev.startedAt && slide.type === 'quiz') slide.startedAt = prev.startedAt;
+          return slide;
+        });
+        p.activeIndex = Math.min(p.activeIndex, Math.max(0, p.slides.length - 1));
+        p.lastActivity = Date.now();
+        await putPres(p);
+        return { s: 200, j: { ok: true, slides: p.slides.map(publicSlide) } };
       });
-      pres.activeIndex = Math.min(pres.activeIndex, Math.max(0, pres.slides.length - 1));
-      pres.lastActivity = Date.now();
-      await putPres(pres);
-      return json(res, 200, { ok: true, slides: pres.slides.map(publicSlide) });
+      return json(res, out.s, out.j);
     }
 
     if (sub === '/state' && method === 'POST') {
       const body = await readJson(req);
-      if (Number.isInteger(body.activeIndex)) {
-        pres.activeIndex = Math.min(Math.max(0, body.activeIndex), Math.max(0, pres.slides.length - 1));
-        const act = pres.slides[pres.activeIndex];
-        if (act && act.type === 'quiz') {
-          act.startedAt = Date.now();   // Quiz-Timer starten
-          pres.resultsHidden = true;    // Quiz startet verdeckt
+      const out = await withPresLock(pres.id, async () => {
+        const p = await getPres(pres.id);
+        if (!p) return { s: 404, j: { error: 'not_found' } };
+        if (Number.isInteger(body.activeIndex)) {
+          p.activeIndex = Math.min(Math.max(0, body.activeIndex), Math.max(0, p.slides.length - 1));
+          const act = p.slides[p.activeIndex];
+          if (act && act.type === 'quiz') { act.startedAt = Date.now(); p.resultsHidden = true; }
         }
-      }
-      if (typeof body.votingLocked === 'boolean') pres.votingLocked = body.votingLocked;
-      if (typeof body.resultsHidden === 'boolean') pres.resultsHidden = body.resultsHidden;
-      if (typeof body.collectNames === 'boolean') {
-        pres.collectNames = body.collectNames;
-        if (!body.collectNames) pres.names = {}; // Namen beim Abschalten löschen
-      }
-      if (typeof body.selfPaced === 'boolean') pres.selfPaced = body.selfPaced;
-      pres.lastActivity = Date.now();
-      await putPres(pres);
-      return json(res, 200, { ok: true });
+        if (typeof body.votingLocked === 'boolean') p.votingLocked = body.votingLocked;
+        if (typeof body.resultsHidden === 'boolean') p.resultsHidden = body.resultsHidden;
+        if (typeof body.collectNames === 'boolean') { p.collectNames = body.collectNames; if (!body.collectNames) p.names = {}; }
+        if (typeof body.selfPaced === 'boolean') p.selfPaced = body.selfPaced;
+        p.lastActivity = Date.now();
+        await putPres(p);
+        return { s: 200, j: { ok: true } };
+      });
+      return json(res, out.s, out.j);
     }
 
     if (sub === '/reset' && method === 'POST') {
       const body = await readJson(req);
-      if (body.slideId) {
-        const slide = pres.slides.find((s) => s.id === body.slideId);
-        if (slide) slide.answers = {};
-      } else {
-        for (const slide of pres.slides) slide.answers = {};
-        pres.names = {}; // vollständiger Reset löscht auch die erfassten Namen
-      }
-      pres.lastActivity = Date.now();
-      await putPres(pres);
-      return json(res, 200, { ok: true });
+      const out = await withPresLock(pres.id, async () => {
+        const p = await getPres(pres.id);
+        if (!p) return { s: 404, j: { error: 'not_found' } };
+        if (body.slideId) {
+          const slide = p.slides.find((s) => s.id === body.slideId);
+          if (slide) slide.answers = {};
+        } else {
+          for (const slide of p.slides) slide.answers = {};
+          p.names = {};
+        }
+        p.lastActivity = Date.now();
+        await putPres(p);
+        return { s: 200, j: { ok: true } };
+      });
+      return json(res, out.s, out.j);
+    }
+
+    // POST /api/presentations/:id/archive — aktuelle Sitzung archivieren & Antworten leeren
+    if (sub === '/archive' && method === 'POST') {
+      const body = await readJson(req);
+      const out = await withPresLock(pres.id, async () => {
+        const p = await getPres(pres.id);
+        if (!p) return { s: 404, j: { error: 'not_found' } };
+        archiveSession(p, body.label);
+        p.lastActivity = Date.now();
+        await putPres(p);
+        return { s: 200, j: { ok: true, sessions: p.sessions.length } };
+      });
+      return json(res, out.s, out.j);
     }
 
     return json(res, 404, { error: 'not_found' });

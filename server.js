@@ -259,6 +259,38 @@ function leaderboard(pres, limit = 20) {
   return rows.slice(0, limit);
 }
 
+/** Kompakte, vergleichbare Zusammenfassung einer Folie zum Archivieren einer Sitzung. */
+function sessionSummary(slide) {
+  const r = computeResults(slide) || {};
+  const base = { type: slide.type, question: slide.question || '', voters: r.voters || 0 };
+  switch (slide.type) {
+    case 'choice':
+    case 'quiz':
+      return { ...base, options: (slide.options || []).slice(), counts: r.counts || [] };
+    case 'points':
+      return { ...base, options: (slide.options || []).slice(), totals: r.totals || [] };
+    case 'ranking':
+      return { ...base, options: (slide.options || []).slice(), scores: (r.items || []).map((it) => ({ index: it.index, score: it.score })) };
+    case 'scale':
+      return { ...base, avg: r.avg || 0, min: slide.min, max: slide.max };
+    case 'wordcloud':
+      return { ...base, words: (r.words || []).slice(0, 10) };
+    default:
+      return base;
+  }
+}
+
+/** Aktuelle Ergebnisse als Sitzung archivieren und Antworten für einen neuen Durchlauf leeren. */
+function archiveSession(pres, label) {
+  const results = {};
+  for (const s of pres.slides || []) results[s.id] = sessionSummary(s);
+  pres.sessions = pres.sessions || [];
+  pres.sessions.push({ ts: Date.now(), label: String(label || '').slice(0, 60), results });
+  if (pres.sessions.length > 20) pres.sessions = pres.sessions.slice(-20);
+  for (const s of pres.slides || []) s.answers = {};
+  pres.names = {};
+}
+
 /** Öffentliche Sicht auf eine Folie (ohne Antworten-Rohdaten). */
 function publicSlide(slide) {
   if (!slide) return null;
@@ -1107,6 +1139,7 @@ async function handleApi(req, res, url) {
         collectNames: !!pres.collectNames,
         selfPaced: !!pres.selfPaced,
         leaderboard: pres.slides.some((s) => s.type === 'quiz') ? leaderboard(pres, 1000) : undefined,
+        sessions: pres.sessions || [],
         brand: brandOf(pres),
       });
     }
@@ -1338,6 +1371,16 @@ async function handleApi(req, res, url) {
     saveStore();
     broadcast(pres.id);
     return sendJSON(res, 200, { ok: true });
+  }
+
+  // POST /api/presentations/:id/archive — aktuelle Sitzung archivieren & Antworten leeren
+  if (sub === '/archive' && method === 'POST') {
+    const body = await readBody(req);
+    archiveSession(pres, body.label);
+    touch(pres);
+    saveStore();
+    broadcast(pres.id);
+    return sendJSON(res, 200, { ok: true, sessions: pres.sessions.length });
   }
 
   return sendJSON(res, 404, { error: 'not_found' });

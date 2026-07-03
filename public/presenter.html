@@ -68,6 +68,14 @@
             </label>
             <div class="help" data-i18n="presenter.details.selfPacedHelp">Statt vom Moderator gesteuert geht jede Person im eigenen Tempo durch alle Folien.</div>
           </div>
+          <div class="field">
+            <label data-i18n="presenter.details.sessions">Sitzungen</label>
+            <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
+              <button class="ds-btn" id="btnArchive" type="button" data-i18n="presenter.details.archive">Neue Sitzung starten</button>
+              <span class="ds-subtitle" id="sessionCount"></span>
+            </div>
+            <div class="help" data-i18n="presenter.details.archiveHelp">Archiviert die aktuellen Ergebnisse und leert die Antworten für einen neuen Durchlauf. Der Verlauf erscheint unter den Ergebnissen jeder Folie.</div>
+          </div>
           <div class="field" style="margin-bottom:0;">
             <label data-i18n="presenter.brand.label">Branding</label>
             <div style="display:flex; align-items:center; gap:0.75rem; flex-wrap:wrap;">
@@ -78,7 +86,7 @@
               <button class="ds-btn" id="brandColorReset" type="button" data-i18n="presenter.brand.reset">Standard</button>
               <label class="ds-btn" style="cursor:pointer;">
                 <span data-i18n="presenter.brand.logo">Logo hochladen</span>
-                <input type="file" id="brandLogoFile" accept="image/png,image/jpeg,image/svg+xml,image/webp" hidden>
+                <input type="file" id="brandLogoFile" accept="image/png,image/jpeg,image/webp" hidden>
               </label>
               <img id="brandLogoPreview" class="brand-logo-preview" hidden alt="">
               <button class="ds-btn ds-btn-danger" id="brandLogoRemove" type="button" hidden data-i18n="presenter.brand.logoRemove">Logo entfernen</button>
@@ -193,6 +201,7 @@
             <span class="ds-card-subtitle" data-i18n="presenter.results.subtitle">aktualisiert sich live — bleibt auch nach der Präsentation erhalten</span>
           </div>
           <div id="editorResults"></div>
+          <div id="editorTrends" hidden></div>
         </div>
       </section>
     </div>
@@ -289,6 +298,8 @@ async function load() {
   $('presTitle').value = pres.title;
   $('optCollectNames').checked = !!pres.collectNames;
   $('optSelfPaced').checked = !!pres.selfPaced;
+  $('sessionCount').textContent = (pres.sessions && pres.sessions.length)
+    ? t('presenter.details.sessionCount', { n: pres.sessions.length }) : '';
   refreshBrandUI();
   $('joinCodeBig').textContent = formatCode(pres.code);
   $('joinUrl').innerHTML = `${t('presenter.access.joinAt')} <b>${esc(publicBase.replace(/^https?:\/\//, ''))}</b>`;
@@ -328,9 +339,71 @@ function renderResultsPanel() {
   const results = latestResults[slide.id];
   if (!results) {
     $('editorResults').innerHTML = `<p class="results-empty">${t('presenter.results.empty')}</p>`;
-    return;
+  } else {
+    renderResults($('editorResults'), slide, results, slide.type === 'quiz' ? { leaderboard: pres && pres.leaderboard, correctIndex: slide.correct } : {});
   }
-  renderResults($('editorResults'), slide, results, slide.type === 'quiz' ? { leaderboard: pres && pres.leaderboard, correctIndex: slide.correct } : {});
+  renderTrends(slide);
+}
+
+// Verlauf über archivierte Sitzungen (+ aktuelle) für die aktuelle Folie
+function renderTrends(slide) {
+  const box = $('editorTrends');
+  box.innerHTML = '';
+  const sessions = (pres && pres.sessions) || [];
+  // Nur Sitzungen behalten, in denen es diese Folie gab — Spaltenkopf trägt die ECHTE Sitzungsnummer,
+  // damit Kopf und Werte immer ausgerichtet bleiben (auch wenn die Folie später hinzugefügt wurde).
+  const cols = sessions.map((s, i) => ({ sum: s.results[slide.id], label: 'S' + (i + 1) })).filter((c) => c.sum);
+  if (!cols.length) { box.hidden = true; return; }
+  box.hidden = false;
+  const cur = latestResults[slide.id];
+  const headers = cols.map((c) => c.label).concat([t('presenter.trends.now')]);
+
+  const table = el('<table class="trends-table"></table>');
+  const thead = el('<tr><th></th></tr>');
+  headers.forEach((h) => thead.appendChild(el(`<th>${esc(h)}</th>`)));
+  table.appendChild(thead);
+  const addRow = (label, values) => {
+    const tr = el(`<tr><td class="tr-label">${esc(label)}</td></tr>`);
+    values.forEach((v) => tr.appendChild(el(`<td>${v == null ? '–' : esc(String(v))}</td>`)));
+    table.appendChild(tr);
+  };
+  const round2 = (n) => Math.round(n * 100) / 100;
+
+  const optionTypes = { choice: 'counts', quiz: 'counts', points: 'totals', ranking: 'scores' };
+  if (optionTypes[slide.type]) {
+    const field = optionTypes[slide.type];
+    // Optionen können sich zwischen Sitzungen geändert haben → nach TEXT zuordnen (Vereinigungsmenge).
+    const labels = [];
+    const addLabels = (opts) => (opts || []).forEach((o) => { const s = String(o); if (s && !labels.includes(s)) labels.push(s); });
+    cols.forEach((c) => addLabels(c.sum.options));
+    addLabels(slide.options);
+    const valOf = (summary, label) => {
+      const idx = (summary.options || []).indexOf(label);
+      if (idx < 0) return null;
+      if (field === 'scores') { const it = (summary.scores || []).find((x) => x.index === idx); return it ? it.score : null; }
+      const arr = summary[field];
+      return (arr && arr[idx] != null) ? arr[idx] : null;
+    };
+    const curVal = (label) => {
+      const idx = (slide.options || []).indexOf(label);
+      if (idx < 0 || !cur) return null;
+      if (slide.type === 'ranking') { const it = (cur.items || []).find((x) => x.index === idx); return it ? it.score : null; }
+      const arr = slide.type === 'points' ? cur.totals : cur.counts;
+      return arr ? (arr[idx] || 0) : null;
+    };
+    labels.forEach((label) => addRow(label, cols.map((c) => valOf(c.sum, label)).concat([curVal(label)])));
+  } else if (slide.type === 'scale') {
+    addRow(t('presenter.trends.avg'), cols.map((c) => c.sum.avg != null ? round2(c.sum.avg) : null)
+      .concat([cur && cur.avg != null ? round2(cur.avg) : null]));
+  } else {
+    addRow(t('presenter.trends.voters'), cols.map((c) => c.sum.voters != null ? c.sum.voters : null)
+      .concat([cur && cur.voters != null ? cur.voters : null]));
+  }
+
+  box.appendChild(el(`<div class="ds-card-title" style="margin-top:1rem;"><span>${t('presenter.trends.title')}</span></div>`));
+  const scroll = el('<div class="trends-scroll"></div>');
+  scroll.appendChild(table);
+  box.appendChild(scroll);
 }
 
 let saveTimer = null;
@@ -523,6 +596,14 @@ $('optSelfPaced').addEventListener('change', async (e) => {
   if (pres) pres.selfPaced = e.target.checked;
   try { await api('POST', `/api/presentations/${PRES_ID}/state`, { selfPaced: e.target.checked }, TOKEN); }
   catch { /* nächster Snapshot korrigiert die Anzeige */ }
+});
+
+$('btnArchive').addEventListener('click', async () => {
+  if (!confirm(t('presenter.details.archiveConfirm'))) return;
+  try {
+    await api('POST', `/api/presentations/${PRES_ID}/archive`, {}, TOKEN);
+    await load(); // Sitzung archiviert + Antworten geleert → neu laden (Verlauf + leere Ergebnisse)
+  } catch { alert(t('presenter.details.archiveFailed')); }
 });
 
 // --- Branding ---------------------------------------------------------------
