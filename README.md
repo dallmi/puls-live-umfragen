@@ -73,11 +73,14 @@ SSE nicht verfügbar ist — auf dem eigenen Server bleiben die Updates also wei
 1. Repo bei [vercel.com](https://vercel.com) importieren („Add New… → Project" → GitHub-Repo
    `puls-live-umfragen"). Framework-Preset: **Other**. Deploy starten.
 2. Im Projekt → **Storage** → **Create Database** → **Upstash for Redis** (Free) verbinden.
-   Vercel legt automatisch die Env-Variablen `KV_REST_API_URL` und `KV_REST_API_TOKEN` an —
-   die Funktion erkennt sie selbst (Fallback ohne Redis: In-Memory, nicht dauerhaft).
-3. **Redeploy** (Deployments → „Redeploy"), damit die Env-Variablen greifen.
+   Für EU-Datenhaltung als **Primary Region Frankfurt (`fra1`)** wählen und beim Verbinden das
+   **Präfix `KV`** setzen → Vercel legt `KV_REST_API_URL`/`KV_REST_API_TOKEN` an, die die Funktion
+   selbst erkennt (Fallback ohne Redis: In-Memory, nicht dauerhaft).
+3. **Redeploy** (Deployments → „Redeploy"), damit die Env-Variablen greifen. `vercel.json` pinnt
+   die Funktions-Region ebenfalls auf `fra1`, sodass Verarbeitung und Speicher in der EU liegen.
 4. Fertig — die `*.vercel.app`-URL an Freunde geben. Neuanlage ist auf 30/Std./IP begrenzt,
-   Präsentationen laufen nach 60 Tagen Inaktivität automatisch ab (Redis-TTL).
+   Präsentationen laufen nach 60 Tagen Inaktivität automatisch ab (Redis-TTL). Ein zweisprachiger
+   Datenschutzhinweis liegt unter `/datenschutz.html` (im Footer verlinkt).
 
 Alternativ per CLI: `vercel login`, dann `vercel --prod` (Upstash trotzdem im Dashboard
 verbinden). Konfiguration steht in `vercel.json` (Routing, 6-stellige Kurz-URL,
