@@ -130,6 +130,16 @@ function touch(pres) {
 const SLIDE_TYPES = ['choice', 'wordcloud', 'open', 'scale', 'qa', 'info'];
 const REACTIONS = ['👍', '❤️', '👏', '😂', '😮', '🎉']; // erlaubte Emoji-Reaktionen
 const REACTION_WINDOW_MS = 6000; // Reaktionen sind ephemer: nur die letzten Sekunden werden gezeigt
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+const MAX_LOGO_BYTES = 90 * 1024; // Data-URI-Länge (passt in MAX_BODY 100 KB)
+
+/** Öffentliche Branding-Info (ohne die Logo-Rohdaten). */
+function brandOf(pres) {
+  return {
+    color: HEX_COLOR.test(pres.brandColor || '') ? pres.brandColor : null,
+    logo: !!pres.brandLogo,
+  };
+}
 
 function newJoinCode() {
   for (let i = 0; i < 200; i++) {
@@ -156,6 +166,8 @@ function createPresentation(title) {
     resultsHidden: false,
     collectNames: false,
     names: {},
+    brandColor: null,
+    brandLogo: null,
     createdAt: now,
     lastActivity: now,
   };
@@ -337,6 +349,7 @@ function snapshot(presId) {
     votingLocked: pres.votingLocked,
     resultsHidden: pres.resultsHidden,
     collectNames: !!pres.collectNames,
+    brand: brandOf(pres),
     slide: publicSlide(slide),
     results: pres.resultsHidden ? null : computeResults(slide, !!pres.collectNames),
     audience: audienceCount(presId),
@@ -914,6 +927,7 @@ async function handleApi(req, res, url) {
         votingLocked: pres.votingLocked,
         resultsHidden: pres.resultsHidden,
         collectNames: !!pres.collectNames,
+        brand: brandOf(pres),
       });
     }
     return sendJSON(res, 200, snapshot(pres.id));
@@ -979,6 +993,14 @@ async function handleApi(req, res, url) {
     return sendJSON(res, 200, { ok: true });
   }
 
+  // GET /api/presentations/:id/logo — Marken-Logo (öffentlich, aus gespeicherter Data-URI)
+  if (sub === '/logo' && method === 'GET') {
+    const dm = /^data:([\w/+.-]+);base64,(.+)$/.exec(pres.brandLogo || '');
+    if (!dm) { res.writeHead(404); return res.end('Nicht gefunden'); }
+    res.writeHead(200, { 'Content-Type': dm[1], 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-cache' });
+    return res.end(Buffer.from(dm[2], 'base64'));
+  }
+
   // POST /api/presentations/:id/identify — Anzeigenamen setzen (Publikum, nur wenn aktiviert)
   if (sub === '/identify' && method === 'POST') {
     const body = await readBody(req);
@@ -1022,6 +1044,23 @@ async function handleApi(req, res, url) {
     saveStore();
     broadcast(pres.id);
     return sendJSON(res, 200, { ok: true });
+  }
+
+  // POST /api/presentations/:id/brand — Akzentfarbe + Logo (Admin)
+  if (sub === '/brand' && method === 'POST') {
+    const body = await readBody(req);
+    if (body.color === null || body.color === '') pres.brandColor = null;
+    else if (typeof body.color === 'string' && HEX_COLOR.test(body.color)) pres.brandColor = body.color;
+    if (body.logo === null || body.logo === '') pres.brandLogo = null;
+    // Nur Raster-Formate — SVG könnte bei direktem /logo-Aufruf Skripte ausführen (XSS).
+    else if (typeof body.logo === 'string' && /^data:image\/(png|jpeg|gif|webp);base64,/.test(body.logo)) {
+      if (body.logo.length > MAX_LOGO_BYTES) return sendJSON(res, 413, { error: 'logo_too_large' });
+      pres.brandLogo = body.logo;
+    }
+    touch(pres);
+    saveStore();
+    broadcast(pres.id);
+    return sendJSON(res, 200, { ok: true, brand: brandOf(pres) });
   }
 
   // DELETE /api/presentations/:id

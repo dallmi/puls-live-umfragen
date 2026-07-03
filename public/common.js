@@ -130,6 +130,42 @@ const BRAND_SEQUENCE = ['#8A000A', '#7A7870', '#B98E2C', '#5A5D5C', '#946F29', '
 // Reaktionen (Emojis)
 // ---------------------------------------------------------------------------
 
+// ---------------------------------------------------------------------------
+// Branding (Akzentfarbe + Logo pro Präsentation)
+// ---------------------------------------------------------------------------
+
+function darkenHex(hex, amt) {
+  if (!/^#[0-9a-fA-F]{6}$/.test(hex)) return hex;
+  const n = parseInt(hex.slice(1), 16);
+  const d = (v) => Math.max(0, Math.round(v * (1 - amt)));
+  const r = d((n >> 16) & 255), g = d((n >> 8) & 255), b = d(n & 255);
+  return '#' + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1);
+}
+
+/** Branding auf die Seite anwenden. logoEls = Array von <img>-Elementen für das Logo. */
+function applyBrand(brand, presId, logoEls) {
+  const root = document.documentElement;
+  const color = brand && brand.color;
+  if (color) {
+    root.style.setProperty('--primary', color);
+    root.style.setProperty('--primary-dark', darkenHex(color, 0.18));
+  } else {
+    root.style.removeProperty('--primary');
+    root.style.removeProperty('--primary-dark');
+  }
+  const logoUrl = (brand && brand.logo) ? `/api/presentations/${presId}/logo` : '';
+  (logoEls || []).forEach((img) => {
+    if (!img) return;
+    if (logoUrl) {
+      if (img.getAttribute('src') !== logoUrl) img.src = logoUrl;
+      img.hidden = false;
+    } else {
+      img.hidden = true;
+      img.removeAttribute('src');
+    }
+  });
+}
+
 const REACTION_EMOJIS = ['👍', '❤️', '👏', '😂', '😮', '🎉'];
 
 function sendReaction(presId, emoji) {

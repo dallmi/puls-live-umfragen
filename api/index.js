@@ -23,6 +23,15 @@ const TTL_SECONDS = 60 * 24 * 60 * 60;   // 60 Tage Inaktivität → automatisch
 const CREATE_MAX = 30;                    // Neuanlagen pro Stunde je IP
 const REACTIONS = ['👍', '❤️', '👏', '😂', '😮', '🎉']; // erlaubte Emoji-Reaktionen
 const REACTION_WINDOW_MS = 6000;          // Reaktionen sind ephemer (letzte Sekunden)
+const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
+const MAX_LOGO_BYTES = 90 * 1024;
+
+function brandOf(pres) {
+  return {
+    color: HEX_COLOR.test(pres.brandColor || '') ? pres.brandColor : null,
+    logo: !!pres.brandLogo,
+  };
+}
 
 // ---------------------------------------------------------------------------
 // Speicher: Upstash Redis (REST) mit In-Memory-Fallback
@@ -117,6 +126,7 @@ function snapshot(pres) {
     votingLocked: pres.votingLocked,
     resultsHidden: pres.resultsHidden,
     collectNames: !!pres.collectNames,
+    brand: brandOf(pres),
     slide: publicSlide(slide),
     results: pres.resultsHidden ? null : computeResults(slide, !!pres.collectNames),
     audience: 0, // serverlos: keine dauerhaften Verbindungen zum Zählen
@@ -182,6 +192,7 @@ export default async function handler(req, res) {
         title: clampText(body.title, 120) || 'Unbenannte Präsentation',
         slides: [], activeIndex: 0, votingLocked: false, resultsHidden: false,
         collectNames: false, names: {},
+        brandColor: null, brandLogo: null,
         createdAt: now, lastActivity: now,
       };
       await putPres(pres);
@@ -214,6 +225,7 @@ export default async function handler(req, res) {
           slides: pres.slides.map((s) => ({ ...publicSlide(s), results: computeResults(s, !!pres.collectNames) })),
           activeIndex: pres.activeIndex, votingLocked: pres.votingLocked, resultsHidden: pres.resultsHidden,
           collectNames: !!pres.collectNames,
+          brand: brandOf(pres),
         });
       }
       return json(res, 200, snapshot(pres));
@@ -272,6 +284,17 @@ export default async function handler(req, res) {
       return json(res, 200, { ok: true });
     }
 
+    // GET /api/presentations/:id/logo — Marken-Logo (öffentlich)
+    if (sub === '/logo' && method === 'GET') {
+      const dm = /^data:([\w/+.-]+);base64,(.+)$/.exec(pres.brandLogo || '');
+      if (!dm) { res.statusCode = 404; return res.end(); }
+      res.statusCode = 200;
+      res.setHeader('Content-Type', dm[1]);
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Cache-Control', 'no-cache');
+      return res.end(Buffer.from(dm[2], 'base64'));
+    }
+
     // POST /api/presentations/:id/identify — Anzeigenamen setzen (Publikum, nur wenn aktiviert)
     if (sub === '/identify' && method === 'POST') {
       const body = await readJson(req);
@@ -308,6 +331,22 @@ export default async function handler(req, res) {
       pres.lastActivity = Date.now();
       await putPres(pres);
       return json(res, 200, { ok: true });
+    }
+
+    // POST /api/presentations/:id/brand — Akzentfarbe + Logo (Admin)
+    if (sub === '/brand' && method === 'POST') {
+      const body = await readJson(req);
+      if (body.color === null || body.color === '') pres.brandColor = null;
+      else if (typeof body.color === 'string' && HEX_COLOR.test(body.color)) pres.brandColor = body.color;
+      if (body.logo === null || body.logo === '') pres.brandLogo = null;
+      // Nur Raster-Formate — SVG könnte bei direktem /logo-Aufruf Skripte ausführen (XSS).
+      else if (typeof body.logo === 'string' && /^data:image\/(png|jpeg|gif|webp);base64,/.test(body.logo)) {
+        if (body.logo.length > MAX_LOGO_BYTES) return json(res, 413, { error: 'logo_too_large' });
+        pres.brandLogo = body.logo;
+      }
+      pres.lastActivity = Date.now();
+      await putPres(pres);
+      return json(res, 200, { ok: true, brand: brandOf(pres) });
     }
 
     if (sub === '' && method === 'DELETE') {

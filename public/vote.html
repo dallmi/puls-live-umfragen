@@ -11,7 +11,7 @@
 <body>
 
 <header class="ds-header">
-  <a class="brand ds-title" href="/"><b>PULS</b></a>
+  <a class="brand ds-title" href="/"><img id="brandLogo" class="brand-logo" hidden alt=""><b>PULS</b></a>
   <div class="ds-header-controls">
     <span class="ds-subtitle" id="codeLabel"></span>
     <span id="langToggle"></span>
@@ -108,6 +108,7 @@ function onSnapshot(s) {
   updateResults();
   updateMeta();
   updateReactionBar();
+  applyBrand(snap.brand, presId, [document.getElementById('brandLogo')]);
 }
 
 function updateMeta() {
