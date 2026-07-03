@@ -506,3 +506,14 @@ main { flex: 1; width: 100%; }
 .secure-intro { font-size: 0.95rem; color: var(--grey-5); margin: 0.5rem 0 1.5rem; }
 .secure-card .secure-continue { margin-top: 1.25rem; }
 .secure-later { margin-top: 0.6rem; }
+
+/* Mockup D — Meine Präsentationen: Hinweis + Sicher-Dialog */
+.mine-title { display: flex; align-items: baseline; justify-content: space-between; gap: 0.5rem; flex-wrap: wrap; }
+.mine-stored-hint { font-size: 0.7rem; font-weight: 400; color: var(--grey-4); }
+.secure-overlay {
+  position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0, 0, 0, 0.35);
+  display: flex; align-items: center; justify-content: center; padding: 1.5rem;
+}
+.secure-dialog { max-width: 460px; width: 100%; box-shadow: var(--shadow-hover); }
+.secure-dialog-close { margin-top: 1rem; }

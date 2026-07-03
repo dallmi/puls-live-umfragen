@@ -58,7 +58,10 @@
     </div>
 
     <div class="ds-card my-presentations" id="mineCard" hidden>
-      <div class="ds-card-title" data-i18n="landing.mine.title">Meine Präsentationen</div>
+      <div class="ds-card-title mine-title">
+        <span data-i18n="landing.mine.title">Meine Präsentationen</span>
+        <span class="mine-stored-hint" data-i18n="landing.mine.storedHint">nur in diesem Browser gespeichert</span>
+      </div>
       <div id="mineList"></div>
     </div>
   </div>
@@ -199,10 +202,13 @@ function buildSecureBlock({ title, url }) {
 }
 
 // --- Meine Präsentationen -------------------------------------------------------
+let dialogState = null;   // { title, url } solange der Sicher-Dialog offen ist
+
 function renderMine() {
   const mine = JSON.parse(localStorage.getItem('puls.mine') || '[]');
   const card = document.getElementById('mineCard');
   const list = document.getElementById('mineList');
+  if (!card || !list) return;                 // in der Sicher-Ansicht nicht vorhanden
   if (!mine.length) { card.hidden = true; return; }
   card.hidden = false;
   list.innerHTML = '';
@@ -214,17 +220,51 @@ function renderMine() {
           <div class="c">Code ${formatCode(p.code)}</div>
         </div>
         <div style="display:flex; gap:0.4rem;">
-          <a class="ds-btn" href="/presenter.html?id=${encodeURIComponent(p.id)}&token=${encodeURIComponent(p.adminToken)}">${t('landing.mine.moderate')}</a>
+          <button type="button" class="ds-btn mine-secure">${esc(t('landing.mine.secure'))}</button>
+          <a class="ds-btn" href="/presenter.html?id=${encodeURIComponent(p.id)}&token=${encodeURIComponent(p.adminToken)}">${esc(t('landing.mine.moderate'))}</a>
         </div>
       </div>`);
+    row.querySelector('.mine-secure').addEventListener('click', () => {
+      openSecureDialog({ title: p.title, url: moderationUrl(p.id, p.adminToken) });
+    });
     list.appendChild(row);
   });
 }
 renderMine();
 
+function openSecureDialog({ title, url }) {
+  closeSecureDialog();
+  dialogState = { title, url };
+  const overlay = el(`
+    <div class="secure-overlay" id="secureOverlay">
+      <div class="secure-dialog ds-card" role="dialog" aria-modal="true">
+        <div class="ds-card-title">${esc(t('landing.mine.dialogTitle'))}</div>
+      </div>
+    </div>`);
+  const dialog = overlay.querySelector('.secure-dialog');
+  dialog.appendChild(buildSecureBlock({ title, url }));
+  const close = el(`<button type="button" class="ds-btn secure-dialog-close">${esc(t('landing.dialog.close'))}</button>`);
+  close.addEventListener('click', closeSecureDialog);
+  dialog.appendChild(close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) closeSecureDialog(); });
+  document.body.appendChild(overlay);
+}
+
+function closeSecureDialog() {
+  dialogState = null;
+  const existing = document.getElementById('secureOverlay');
+  if (existing) existing.remove();
+}
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && dialogState) closeSecureDialog();
+});
+
 function refreshLanguage() {
   document.title = t('landing.pageTitle');
+  if (secureState) { showSecureView(secureState); return; }  // dynamische Ansicht neu bauen
   renderMine();
+  if (dialogState) openSecureDialog(dialogState);            // offenen Dialog neu bauen
 }
 </script>
 </body>
