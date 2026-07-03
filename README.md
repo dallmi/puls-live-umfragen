@@ -88,11 +88,11 @@ Security-Header/CSP). Grenze des Free Tiers: Polling ~alle 1,5 s, Upstash 10 000
 
 ```
 server.js            Zero-Dependency Node.js-Server (http, fs, crypto) — eigener Server
-lib/domain.mjs       Gemeinsame Domänenlogik (Ergebnisse, Validierung, XLSX)
-api/[...path].js     Serverlose Vercel-Funktion (Upstash-KV, Polling) — nutzt lib/domain.mjs
-vercel.json          Vercel-Routing, Kurz-URL, Security-Header
                      REST-API + Server-Sent Events (SSE) für Echtzeit
-data/store.json      Persistenz (automatisch, atomisches Schreiben)
+data/store.json      Persistenz des eigenen Servers (automatisch, atomisches Schreiben)
+lib/domain.mjs       Gemeinsame Domänenlogik (Ergebnisse, Validierung, XLSX)
+api/index.js         Serverlose Vercel-Funktion (Upstash-KV, Polling) — nutzt lib/domain.mjs
+vercel.json          Vercel-Routing (alle /api/* → Funktion), Kurz-URL, Security-Header
 public/
   index.html         Startseite: beitreten / erstellen
   presenter.html     Editor + Vollbild-Präsentationsmodus
