@@ -6,3 +6,15 @@ puls-windows.zip
 .worktrees/
 .vercel/
 .env*.local
+
+# Playwright-/Debug-Artefakte
+*.png
+*-snapshot.md
+configure-snapshot.md
+deploy-menu.md
+deployments.md
+preset-menu.md
+redeploy-dialog.md
+stores-refs.md
+upstash-list.md
+plan-step.md
