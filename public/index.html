@@ -89,6 +89,7 @@ async function attemptJoin(code) {
   if (code.length !== 6) { errEl.textContent = t('landing.join.errInvalid'); return; }
   if (joining) return;
   joining = true;
+  lastAttempt = code;
   errEl.textContent = '';
   try {
     await api('GET', `/api/join/${code}`);
@@ -109,7 +110,6 @@ document.getElementById('joinCode').addEventListener('input', (e) => {
   const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
   e.target.value = digits.length > 3 ? digits.slice(0, 3) + ' ' + digits.slice(3) : digits;
   if (digits.length === 6 && digits !== lastAttempt) {
-    lastAttempt = digits;
     attemptJoin(digits);
   } else if (digits.length < 6) {
     lastAttempt = '';           // erneut freigeben, sobald wieder unter 6
