@@ -165,6 +165,7 @@ function createPresentation(title) {
     votingLocked: false,
     resultsHidden: false,
     collectNames: false,
+    selfPaced: false,
     names: {},
     brandColor: null,
     brandLogo: null,
@@ -392,7 +393,8 @@ function snapshot(presId) {
   const pres = store.presentations[presId];
   if (!pres) return { error: 'not_found' };
   const slide = pres.slides[pres.activeIndex] || null;
-  return {
+  const selfPaced = !!pres.selfPaced;
+  const snap = {
     title: pres.title,
     code: pres.code,
     slideCount: pres.slides.length,
@@ -400,12 +402,19 @@ function snapshot(presId) {
     votingLocked: pres.votingLocked,
     resultsHidden: pres.resultsHidden,
     collectNames: !!pres.collectNames,
+    selfPaced,
     brand: brandOf(pres),
     slide: publicSlide(slide),
     results: pres.resultsHidden ? null : computeResults(slide, !!pres.collectNames),
     audience: audienceCount(presId),
     reactions: (pres.reactions || []).filter((r) => r.ts > Date.now() - REACTION_WINDOW_MS),
   };
+  // Selbststeuerung: Teilnehmende blättern selbst → sie brauchen alle Folien (+ Ergebnisse).
+  if (selfPaced) {
+    snap.slides = pres.slides.map(publicSlide);
+    snap.resultsList = pres.resultsHidden ? null : pres.slides.map((s) => computeResults(s, !!pres.collectNames));
+  }
+  return snap;
 }
 
 // Heartbeat, damit Proxies die Verbindungen nicht kappen
@@ -1001,6 +1010,7 @@ async function handleApi(req, res, url) {
         votingLocked: pres.votingLocked,
         resultsHidden: pres.resultsHidden,
         collectNames: !!pres.collectNames,
+        selfPaced: !!pres.selfPaced,
         brand: brandOf(pres),
       });
     }
@@ -1206,6 +1216,7 @@ async function handleApi(req, res, url) {
       pres.collectNames = body.collectNames;
       if (!body.collectNames) pres.names = {}; // Namen beim Abschalten löschen (Datensparsamkeit)
     }
+    if (typeof body.selfPaced === 'boolean') pres.selfPaced = body.selfPaced;
     touch(pres);
     saveStore();
     broadcast(pres.id);

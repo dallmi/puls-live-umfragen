@@ -52,6 +52,26 @@ let snap = null;
 let renderedKey = null;   // slide.id + locked — Formular nur bei Änderung neu bauen
 let selection = [];       // Auswahl bei choice/scale
 let upvoted = new Set(); // pro Präsentation geladen, sobald presId bekannt ist
+let paceIndex = 0;        // Selbststeuerung: Folie, auf der die Person gerade ist
+
+// Aktuelle Folie/Ergebnisse — bei Selbststeuerung lokal geblättert, sonst vom Moderator gesteuert.
+function curSlide() { return snap.selfPaced ? ((snap.slides || [])[paceIndex] || null) : snap.slide; }
+function curResults() {
+  if (snap.selfPaced) return snap.resultsList ? (snap.resultsList[paceIndex] || null) : null;
+  return snap.results;
+}
+function curCount() { return snap.selfPaced ? ((snap.slides || []).length || snap.slideCount) : snap.slideCount; }
+function curIndex() { return snap.selfPaced ? paceIndex : snap.activeIndex; }
+
+function goPace(delta) {
+  const n = curCount();
+  const next = Math.min(Math.max(0, paceIndex + delta), Math.max(0, n - 1));
+  if (next === paceIndex) return;
+  paceIndex = next;
+  sessionStorage.setItem('puls.pace.' + presId, String(paceIndex));
+  renderedKey = null;
+  onSnapshot(snap);
+}
 
 function votedStore() {
   return JSON.parse(sessionStorage.getItem('puls.voted.' + presId) || '{}');
@@ -77,6 +97,7 @@ async function init() {
     // localStorage (nicht session): bleibt wie die participantId erhalten, sodass die
     // „gevotet"-Markierung nach erneutem Öffnen mit dem Serverzustand übereinstimmt.
     upvoted = new Set(JSON.parse(localStorage.getItem('puls.upvoted.' + presId) || '[]'));
+    paceIndex = parseInt(sessionStorage.getItem('puls.pace.' + presId) || '0', 10) || 0;
     setupReactionBar();
     connectStream(presId, 'audience', onSnapshot);
   } catch {
@@ -91,12 +112,15 @@ async function init() {
 
 function onSnapshot(s) {
   snap = s;
-  const slide = s.slide;
+  // Selbststeuerung: paceIndex im gültigen Bereich halten (z. B. wenn Folien gelöscht wurden)
+  if (s.selfPaced) paceIndex = Math.min(paceIndex, Math.max(0, curCount() - 1));
+  const slide = curSlide();
   const gate = s.collectNames && !storedName();
-  let key = gate ? 'namegate' : (slide ? `${slide.id}|${s.votingLocked}` : 'none');
+  let key = gate ? 'namegate' : (slide ? `${s.selfPaced ? paceIndex + '|' : ''}${slide.id}|${s.votingLocked}` : 'none');
 
   // Moderation hat die Antworten zurückgesetzt → lokalen Status verwerfen
-  if (slide && s.results && s.results.voters === 0 && votedStore()[slide.id] !== undefined) {
+  const res = curResults();
+  if (slide && res && res.voters === 0 && votedStore()[slide.id] !== undefined) {
     const store = votedStore();
     delete store[slide.id];
     sessionStorage.setItem('puls.voted.' + presId, JSON.stringify(store));
@@ -116,7 +140,7 @@ function onSnapshot(s) {
 
 function updateMeta() {
   const pos = document.getElementById('posLabel');
-  if (pos && snap.slideCount) pos.textContent = t('common.slidePosition', { n: snap.activeIndex + 1, total: snap.slideCount });
+  if (pos && curCount()) pos.textContent = t('common.slidePosition', { n: curIndex() + 1, total: curCount() });
 }
 
 function setupReactionBar() {
@@ -133,7 +157,7 @@ function updateReactionBar() {
   const bar = document.getElementById('reactionBar');
   if (!bar) return;
   const gated = snap.collectNames && !storedName();
-  bar.hidden = !(snap.slide && !gated);
+  bar.hidden = !(curSlide() && !gated);
 }
 
 // ---------------------------------------------------------------------------
@@ -141,7 +165,7 @@ function updateReactionBar() {
 // ---------------------------------------------------------------------------
 
 function buildSlide() {
-  const slide = snap.slide;
+  const slide = curSlide();
   resultsVisible = false;
   root.innerHTML = '';
 
@@ -199,6 +223,21 @@ function buildSlide() {
   const boardTitle = isQaBoard ? t('vote.qa.boardTitle') : t('vote.results.title');
   const boardHint = isQaBoard ? `<p class="vote-board-hint">${t('vote.qa.boardHint')}</p>` : '';
   root.appendChild(el(`<div class="vote-results-block" id="resultsBlock" hidden><h3>${boardTitle}</h3>${boardHint}<div id="resultsBox"></div></div>`));
+
+  // Selbststeuerung: Blätter-Navigation
+  if (snap.selfPaced) {
+    const n = curCount();
+    const nav = el(`
+      <div class="pace-nav">
+        <button class="ds-btn" id="pacePrev"${paceIndex <= 0 ? ' disabled' : ''}>${t('vote.pace.prev')}</button>
+        <span class="pace-pos">${t('common.slidePosition', { n: paceIndex + 1, total: n })}</span>
+        <button class="ds-btn ds-btn-primary" id="paceNext"${paceIndex >= n - 1 ? ' disabled' : ''}>${t('vote.pace.next')}</button>
+      </div>`);
+    nav.querySelector('#pacePrev').addEventListener('click', () => goPace(-1));
+    nav.querySelector('#paceNext').addEventListener('click', () => goPace(1));
+    root.appendChild(nav);
+  }
+
   updateMeta();
 }
 
@@ -249,7 +288,7 @@ function buildNameGate() {
 async function submit(value, onOk, onErr) {
   try {
     await api('POST', `/api/presentations/${presId}/answers`, {
-      slideId: snap.slide.id,
+      slideId: curSlide().id,
       participantId: PID,
       value,
     });
@@ -291,7 +330,7 @@ function buildChoice(form, slide) {
       markVoted(slide.id, selection);
       note.innerHTML = '';
       note.appendChild(submittedNote(prevNoteText()));
-      showResults();
+      showResults(slide.id);
     });
   });
   form.appendChild(submitBtn);
@@ -329,7 +368,7 @@ function buildWordcloud(form, slide) {
     if (done) {
       note.innerHTML = '';
       note.appendChild(submittedNote(t('vote.wordcloud.done')));
-      showResults();
+      showResults(slide.id);
     }
   }
 
@@ -343,7 +382,7 @@ function buildWordcloud(form, slide) {
       s[slide.id] = [...(s[slide.id] || []), word];
       sessionStorage.setItem('puls.voted.' + presId, JSON.stringify(s));
       input.value = '';
-      showResults();
+      showResults(slide.id);
       refresh();
     });
   }
@@ -373,7 +412,7 @@ function buildOpen(form, slide) {
       ta.value = '';
       note.innerHTML = '';
       note.appendChild(submittedNote(t('vote.open.sent')));
-      showResults();
+      showResults(slide.id);
     }, (e) => {
       if (e.message === 'limit_reached') {
         note.innerHTML = '';
@@ -402,7 +441,7 @@ function buildScale(form, slide) {
         markVoted(slide.id, v);
         note.innerHTML = '';
         note.appendChild(submittedNote(t('vote.scale.recorded')));
-        showResults();
+        showResults(slide.id);
       });
     });
     picker.appendChild(b);
@@ -476,7 +515,7 @@ function buildPoints(form, slide) {
       markVoted(slide.id, pts);
       note.innerHTML = '';
       note.appendChild(submittedNote(t('vote.points.recorded')));
-      showResults();
+      showResults(slide.id);
     });
   });
 
@@ -522,7 +561,7 @@ function buildRanking(form, slide) {
       markVoted(slide.id, order);
       note.innerHTML = '';
       note.appendChild(submittedNote(t('vote.ranking.recorded')));
-      showResults();
+      showResults(slide.id);
     });
   });
 
@@ -568,19 +607,27 @@ function buildQa(form, slide) {
 // ---------------------------------------------------------------------------
 
 let resultsVisible = false;
-function showResults() { resultsVisible = true; updateResults(); }
+// forId (optional): nur einblenden, wenn die Person noch auf DIESER Folie ist.
+// Verhindert, dass eine spät eintreffende Antwort einer anderen Folie die
+// Ergebnisse der inzwischen offenen (noch nicht beantworteten) Folie zeigt.
+function showResults(forId) {
+  if (forId != null && (!curSlide() || curSlide().id !== forId)) return;
+  resultsVisible = true;
+  updateResults();
+}
 
 function updateResults() {
   const block = document.getElementById('resultsBlock');
   const box = document.getElementById('resultsBox');
-  if (!block || !box || !snap.slide) return;
+  const slide = curSlide();
+  if (!block || !box || !slide) return;
 
-  const isQa = snap.slide.type === 'qa';
+  const isQa = slide.type === 'qa';
   if (!resultsVisible && !isQa) { block.hidden = true; return; }
-  if (snap.resultsHidden || !snap.results) { block.hidden = true; return; }
+  if (snap.resultsHidden || !curResults()) { block.hidden = true; return; }
 
   block.hidden = false;
-  renderResults(box, snap.slide, snap.results, isQa ? {
+  renderResults(box, slide, curResults(), isQa ? {
     onUpvote: async (qid) => {
       // Optimistisch umschalten und sofort neu zeichnen — sonst überschreibt ein
       // eintreffender Live-Snapshot die eigene Markierung, bevor die Antwort da ist.
@@ -590,7 +637,7 @@ function updateResults() {
       updateResults();
       try {
         await api('POST', `/api/presentations/${presId}/upvote`, {
-          slideId: snap.slide.id, participantId: PID, questionId: qid,
+          slideId: slide.id, participantId: PID, questionId: qid,
         });
       } catch {
         // Fehlgeschlagen → Markierung zurücknehmen

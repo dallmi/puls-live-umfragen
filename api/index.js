@@ -150,7 +150,8 @@ function isAdmin(pres, req, url) {
 
 function snapshot(pres) {
   const slide = pres.slides[pres.activeIndex] || null;
-  return {
+  const selfPaced = !!pres.selfPaced;
+  const snap = {
     title: pres.title,
     code: pres.code,
     slideCount: pres.slides.length,
@@ -158,12 +159,19 @@ function snapshot(pres) {
     votingLocked: pres.votingLocked,
     resultsHidden: pres.resultsHidden,
     collectNames: !!pres.collectNames,
+    selfPaced,
     brand: brandOf(pres),
     slide: publicSlide(slide),
     results: pres.resultsHidden ? null : computeResults(slide, !!pres.collectNames),
     audience: 0, // serverlos: keine dauerhaften Verbindungen zum Zählen
     reactions: (pres.reactions || []).filter((r) => r.ts > Date.now() - REACTION_WINDOW_MS),
   };
+  // Selbststeuerung: Teilnehmende blättern selbst → sie brauchen alle Folien (+ Ergebnisse).
+  if (selfPaced) {
+    snap.slides = pres.slides.map(publicSlide);
+    snap.resultsList = pres.resultsHidden ? null : pres.slides.map((s) => computeResults(s, !!pres.collectNames));
+  }
+  return snap;
 }
 
 async function newJoinCode() {
@@ -223,7 +231,7 @@ export default async function handler(req, res) {
         adminToken: crypto.randomBytes(24).toString('hex'),
         title: clampText(body.title, 120) || 'Unbenannte Präsentation',
         slides: [], activeIndex: 0, votingLocked: false, resultsHidden: false,
-        collectNames: false, names: {},
+        collectNames: false, selfPaced: false, names: {},
         brandColor: null, brandLogo: null,
         createdAt: now, lastActivity: now,
       };
@@ -261,6 +269,7 @@ export default async function handler(req, res) {
           })),
           activeIndex: pres.activeIndex, votingLocked: pres.votingLocked, resultsHidden: pres.resultsHidden,
           collectNames: !!pres.collectNames,
+          selfPaced: !!pres.selfPaced,
           brand: brandOf(pres),
         });
       }
@@ -460,6 +469,7 @@ export default async function handler(req, res) {
         pres.collectNames = body.collectNames;
         if (!body.collectNames) pres.names = {}; // Namen beim Abschalten löschen
       }
+      if (typeof body.selfPaced === 'boolean') pres.selfPaced = body.selfPaced;
       pres.lastActivity = Date.now();
       await putPres(pres);
       return json(res, 200, { ok: true });
