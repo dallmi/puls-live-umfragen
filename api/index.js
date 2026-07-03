@@ -58,17 +58,25 @@ async function redis(...cmd) {
   return data.result;
 }
 
-function memCommand([op, key, value, , ttl]) {
+function memCommand(cmd) {
+  const [op, key, value] = cmd;
+  const flags = cmd.slice(3); // z. B. ['NX','PX',5000] oder ['EX',TTL]
   const now = Date.now();
   // abgelaufene Schlüssel bereinigen
   const exp = memExp.get(key);
   if (exp && exp <= now) { mem.delete(key); memExp.delete(key); }
+  const flagVal = (name) => { const i = flags.indexOf(name); return i !== -1 ? Number(flags[i + 1]) : 0; };
   switch (op) {
     case 'GET': return mem.has(key) ? mem.get(key) : null;
-    case 'SET':
+    case 'SET': {
+      if (flags.includes('NX') && mem.has(key)) return null; // NX: nur setzen, wenn frei (Lock)
       mem.set(key, value);
-      if (ttl) memExp.set(key, now + ttl * 1000);
+      const ex = flagVal('EX'), px = flagVal('PX');
+      if (ex) memExp.set(key, now + ex * 1000);
+      else if (px) memExp.set(key, now + px);
+      else memExp.delete(key);
       return 'OK';
+    }
     case 'DEL': { const had = mem.delete(key); memExp.delete(key); return had ? 1 : 0; }
     case 'INCR': { const n = (Number(mem.get(key)) || 0) + 1; mem.set(key, String(n)); return n; }
     case 'EXPIRE': memExp.set(key, now + Number(value) * 1000); return 1;
@@ -94,6 +102,29 @@ async function delPres(pres) {
 }
 async function idByCode(code) {
   return await redis('GET', codeKey(code));
+}
+
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Per-Präsentation-Lock gegen verlorene Updates: getPres→mutieren→putPres ist
+ * nicht atomar, gleichzeitige Schreibvorgänge (z. B. zwei Upvotes) würden sich
+ * sonst gegenseitig überschreiben. SET NX als kurzlebiges Lock; fn muss die
+ * Präsentation INNERHALB des Locks frisch lesen (getPres), ändern, putPres.
+ * Notausgang nach begrenzten Versuchen → best effort statt Blockade.
+ */
+async function withPresLock(id, fn, tries = 14) {
+  const lockKey = `puls:lock:${id}`;
+  for (let i = 0; i < tries; i++) {
+    let got = null;
+    try { got = await redis('SET', lockKey, '1', 'NX', 'PX', 5000); } catch { got = null; }
+    if (got) {
+      try { return await fn(); }
+      finally { await redis('DEL', lockKey).catch(() => {}); }
+    }
+    await sleep(15 + i * 8); // ansteigender Backoff (~0,7 s gesamt)
+  }
+  return fn(); // Lock nicht bekommen → trotzdem ausführen (seltener verlorener Schreibvorgang > Hänger)
 }
 
 // ---------------------------------------------------------------------------
@@ -238,42 +269,59 @@ export default async function handler(req, res) {
 
     if (sub === '/answers' && method === 'POST') {
       const body = await readJson(req);
-      const slide = pres.slides.find((s) => s.id === body.slideId);
-      if (!slide) return json(res, 404, { error: 'slide_unknown' });
-      if (pres.votingLocked) return json(res, 423, { error: 'voting_locked' });
       const pid = clampText(String(body.participantId || ''), 64);
       if (!pid) return json(res, 400, { error: 'participant_missing' });
-      if (!(pid in slide.answers) && Object.keys(slide.answers).length >= MAX_PARTICIPANTS_PER_SLIDE) {
-        return json(res, 429, { error: 'slide_full' });
-      }
-      const name = pres.collectNames ? ((pres.names && pres.names[pid]) || '') : '';
-      const ok = applyAnswer(slide, pid, body, name);
-      if (!ok.ok) return json(res, 400, { error: ok.error });
-      pres.lastActivity = Date.now();
-      await putPres(pres);
-      return json(res, 200, { ok: true });
+      // Unter Lock frisch lesen → mutieren → schreiben (verhindert verlorene Updates).
+      const out = await withPresLock(pres.id, async () => {
+        const p = await getPres(pres.id);
+        if (!p) return { s: 404, j: { error: 'not_found' } };
+        const slide = p.slides.find((s) => s.id === body.slideId);
+        if (!slide) return { s: 404, j: { error: 'slide_unknown' } };
+        if (p.votingLocked) return { s: 423, j: { error: 'voting_locked' } };
+        if (!(pid in slide.answers) && Object.keys(slide.answers).length >= MAX_PARTICIPANTS_PER_SLIDE) {
+          return { s: 429, j: { error: 'slide_full' } };
+        }
+        const name = p.collectNames ? ((p.names && p.names[pid]) || '') : '';
+        const ok = applyAnswer(slide, pid, body, name);
+        if (!ok.ok) return { s: 400, j: { error: ok.error } };
+        p.lastActivity = Date.now();
+        await putPres(p);
+        return { s: 200, j: { ok: true } };
+      });
+      return json(res, out.s, out.j);
     }
 
     if (sub === '/upvote' && method === 'POST') {
       const body = await readJson(req);
-      const slide = pres.slides.find((s) => s.id === body.slideId);
-      if (!slide || slide.type !== 'qa') return json(res, 404, { error: 'slide_unknown' });
       const pid = clampText(String(body.participantId || ''), 64);
       if (!pid) return json(res, 400, { error: 'participant_missing' });
-      let found = false;
-      for (const list of Object.values(slide.answers)) {
-        for (const q of list) {
-          if (q.id === body.questionId) {
-            q.upvotes = q.upvotes || {};
-            if (q.upvotes[pid]) delete q.upvotes[pid]; else q.upvotes[pid] = 1;
-            found = true;
+      const out = await withPresLock(pres.id, async () => {
+        const p = await getPres(pres.id);
+        if (!p) return { s: 404, j: { error: 'not_found' } };
+        const slide = p.slides.find((s) => s.id === body.slideId);
+        if (!slide || slide.type !== 'qa') return { s: 404, j: { error: 'slide_unknown' } };
+        let found = false;
+        for (const list of Object.values(slide.answers)) {
+          if (!Array.isArray(list)) continue; // z. B. von einer früheren Skala-Antwort (Zahl)
+          for (const q of list) {
+            if (q && q.id === body.questionId) {
+              q.upvotes = q.upvotes || {};
+              if (q.upvotes[pid]) delete q.upvotes[pid];
+              else {
+                // Obergrenze der Upvoter je Frage (verhindert unbegrenztes Wachstum)
+                if (Object.keys(q.upvotes).length >= MAX_PARTICIPANTS_PER_SLIDE) return { s: 429, j: { error: 'too_many_upvotes' } };
+                q.upvotes[pid] = 1;
+              }
+              found = true;
+            }
           }
         }
-      }
-      if (!found) return json(res, 404, { error: 'question_unknown' });
-      pres.lastActivity = Date.now();
-      await putPres(pres);
-      return json(res, 200, { ok: true });
+        if (!found) return { s: 404, j: { error: 'question_unknown' } };
+        p.lastActivity = Date.now();
+        await putPres(p);
+        return { s: 200, j: { ok: true } };
+      });
+      return json(res, out.s, out.j);
     }
 
     // POST /api/presentations/:id/react — Emoji-Reaktion (Publikum, ephemer)

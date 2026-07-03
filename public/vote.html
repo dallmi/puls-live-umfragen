@@ -51,7 +51,7 @@ let presId = null;
 let snap = null;
 let renderedKey = null;   // slide.id + locked — Formular nur bei Änderung neu bauen
 let selection = [];       // Auswahl bei choice/scale
-const upvoted = new Set(JSON.parse(sessionStorage.getItem('puls.upvoted') || '[]'));
+let upvoted = new Set(); // pro Präsentation geladen, sobald presId bekannt ist
 
 function votedStore() {
   return JSON.parse(sessionStorage.getItem('puls.voted.' + presId) || '{}');
@@ -74,6 +74,9 @@ async function init() {
   try {
     const joined = await api('GET', `/api/join/${CODE}`);
     presId = joined.id;
+    // localStorage (nicht session): bleibt wie die participantId erhalten, sodass die
+    // „gevotet"-Markierung nach erneutem Öffnen mit dem Serverzustand übereinstimmt.
+    upvoted = new Set(JSON.parse(localStorage.getItem('puls.upvoted.' + presId) || '[]'));
     setupReactionBar();
     connectStream(presId, 'audience', onSnapshot);
   } catch {
@@ -192,7 +195,10 @@ function buildSlide() {
     if (slide.text) form.appendChild(el(`<div class="info-text">${esc(slide.text).replace(/\n/g, '<br>')}</div>`));
   }
 
-  root.appendChild(el(`<div class="vote-results-block" id="resultsBlock" hidden><h3>${t('vote.results.title')}</h3><div id="resultsBox"></div></div>`));
+  const isQaBoard = slide.type === 'qa';
+  const boardTitle = isQaBoard ? t('vote.qa.boardTitle') : t('vote.results.title');
+  const boardHint = isQaBoard ? `<p class="vote-board-hint">${t('vote.qa.boardHint')}</p>` : '';
+  root.appendChild(el(`<div class="vote-results-block" id="resultsBlock" hidden><h3>${boardTitle}</h3>${boardHint}<div id="resultsBox"></div></div>`));
   updateMeta();
 }
 
@@ -576,13 +582,22 @@ function updateResults() {
   block.hidden = false;
   renderResults(box, snap.slide, snap.results, isQa ? {
     onUpvote: async (qid) => {
+      // Optimistisch umschalten und sofort neu zeichnen — sonst überschreibt ein
+      // eintreffender Live-Snapshot die eigene Markierung, bevor die Antwort da ist.
+      const had = upvoted.has(qid);
+      if (had) upvoted.delete(qid); else upvoted.add(qid);
+      localStorage.setItem('puls.upvoted.' + presId, JSON.stringify([...upvoted]));
+      updateResults();
       try {
         await api('POST', `/api/presentations/${presId}/upvote`, {
           slideId: snap.slide.id, participantId: PID, questionId: qid,
         });
-        if (upvoted.has(qid)) upvoted.delete(qid); else upvoted.add(qid);
-        sessionStorage.setItem('puls.upvoted', JSON.stringify([...upvoted]));
-      } catch { /* ignorieren */ }
+      } catch {
+        // Fehlgeschlagen → Markierung zurücknehmen
+        if (had) upvoted.add(qid); else upvoted.delete(qid);
+        localStorage.setItem('puls.upvoted.' + presId, JSON.stringify([...upvoted]));
+        updateResults();
+      }
     },
     upvoted,
   } : {});

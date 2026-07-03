@@ -1037,16 +1037,20 @@ async function handleApi(req, res, url) {
     const pid = clampText(String(body.participantId || ''), 64);
     if (!pid) return sendJSON(res, 400, { error: 'participant_missing' });
     let found = false;
+    let capped = false;
     for (const list of Object.values(slide.answers)) {
+      if (!Array.isArray(list)) continue; // z. B. von einer früheren Skala-Antwort (Zahl)
       for (const q of list) {
-        if (q.id === body.questionId) {
+        if (q && q.id === body.questionId) {
           q.upvotes = q.upvotes || {};
           if (q.upvotes[pid]) delete q.upvotes[pid];
+          else if (Object.keys(q.upvotes).length >= MAX_PARTICIPANTS_PER_SLIDE) { capped = true; }
           else q.upvotes[pid] = 1;
           found = true;
         }
       }
     }
+    if (capped) return sendJSON(res, 429, { error: 'too_many_upvotes' });
     if (!found) return sendJSON(res, 404, { error: 'question_unknown' });
     touch(pres);
     saveStore();

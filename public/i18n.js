@@ -156,6 +156,8 @@ const DICT = {
   'vote.qa.submit': { de: 'Frage einreichen', en: 'Submit question' },
   'vote.qa.sent': { de: 'Frage eingereicht.', en: 'Question submitted.' },
   'vote.qa.pending': { de: 'Frage eingereicht — wird von der Moderation geprüft.', en: 'Question submitted — awaiting host approval.' },
+  'vote.qa.boardTitle': { de: 'Fragen — nach oben voten', en: 'Questions — vote to the top' },
+  'vote.qa.boardHint': { de: 'Tippe ▲ bei den Fragen, die dir am wichtigsten sind. Die mit den meisten Stimmen stehen oben.', en: 'Tap ▲ on the questions you care about most. The most-voted rise to the top.' },
   'vote.qa.limitReached': { de: 'Limit erreicht — maximal 5 Fragen pro Person.', en: 'Limit reached — maximum 5 questions per person.' },
 
   // --- Ergebnis-Rendering (common.js) ------------------------------------------
