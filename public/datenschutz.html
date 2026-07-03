@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PULS — Datenschutz / Privacy</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/design-system.css">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .legal { max-width: 760px; margin: 0 auto; padding: 2rem 1.5rem 4rem; }
+  .legal h1 { font-size: 1.9rem; font-weight: 300; color: var(--black); margin-bottom: 0.4rem; }
+  .legal h2 { font-size: 1.05rem; font-weight: 600; color: var(--black); margin: 1.8rem 0 0.5rem; }
+  .legal p, .legal li { font-size: 0.9rem; color: var(--grey-6); line-height: 1.6; }
+  .legal ul { margin: 0.3rem 0 0.3rem 1.2rem; }
+  .legal .lead { color: var(--grey-4); font-size: 0.85rem; }
+  .legal .lang-sep { border: none; border-top: 1px solid var(--grey-1); margin: 3rem 0; }
+  .legal a { color: var(--info); }
+  .legal .back { display: inline-block; margin-bottom: 1.5rem; font-size: 0.85rem; }
+</style>
+</head>
+<body>
+
+<header class="ds-header">
+  <a class="brand ds-title" href="/"><b>PULS</b> Datenschutz</a>
+</header>
+
+<main>
+  <div class="legal">
+    <a class="back" href="/">← Zur Startseite</a>
+
+    <!-- ===================== DEUTSCH ===================== -->
+    <h1>Datenschutzhinweis</h1>
+    <p class="lead">Diese Instanz von PULS ist ein privates Werkzeug für Live-Umfragen. Wir halten die Datenverarbeitung bewusst minimal.</p>
+
+    <h2>Verantwortlich</h2>
+    <p>Verantwortlich für die Datenverarbeitung ist der Betreiber dieser Instanz,
+       erreichbar unter <a href="mailto:michaeldall396@gmail.com">michaeldall396@gmail.com</a>.</p>
+
+    <h2>Welche Daten verarbeitet werden</h2>
+    <ul>
+      <li><b>Abstimmungs-Antworten</b> — die von Teilnehmenden abgegebenen Stimmen und Freitexte
+          (Wortwolken-Begriffe, offene Antworten, Q&amp;A-Fragen). Freitext kann personenbezogene
+          Angaben enthalten, wenn Teilnehmende solche freiwillig eintippen.</li>
+      <li><b>IP-Adresse</b> — nur kurzzeitig und ausschließlich zur Missbrauchs-Abwehr
+          (Begrenzung der Neuanlage von Präsentationen). Automatische Löschung nach einer Stunde.</li>
+      <li><b>Zufällige Geräte-Kennung</b> — eine zufällige Zeichenfolge im lokalen Speicher
+          des Browsers (localStorage), damit dieselbe Person nicht doppelt zählt. Kein Name, kein Konto.</li>
+    </ul>
+    <p>Es gibt <b>keine Anmeldung, keine Cookies, keine Tracker</b> und keine Weitergabe zu Werbezwecken.</p>
+
+    <h2>Zweck und Rechtsgrundlage</h2>
+    <p>Die Verarbeitung dient allein der Durchführung der jeweiligen Live-Umfrage
+       (Art. 6 Abs. 1 lit. b/f DSGVO — Durchführung der angeforderten Funktion bzw. berechtigtes
+       Interesse an einem funktionierenden, missbrauchsgeschützten Dienst).</p>
+
+    <h2>Speicherort und Speicherdauer</h2>
+    <p>Die Daten werden bei <b>Upstash (Redis-Datenbank) in der Region Frankfurt, Deutschland (EU)</b>
+       gespeichert; das Hosting erfolgt über <b>Vercel</b> mit Ausführung in der Region Frankfurt.
+       Präsentationen und ihre Antworten werden nach <b>60 Tagen Inaktivität automatisch gelöscht</b>.
+       Die moderierende Person kann Antworten jederzeit zurücksetzen oder die Präsentation löschen.</p>
+
+    <h2>Auftragsverarbeiter</h2>
+    <p>Als technische Dienstleister sind Vercel Inc. und Upstash Inc. eingebunden. Die Daten liegen
+       physisch in der EU (Frankfurt); die Zusammenarbeit erfolgt auf Basis der jeweiligen
+       Auftragsverarbeitungsverträge und EU-Standardvertragsklauseln.</p>
+
+    <h2>Ihre Rechte</h2>
+    <p>Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung und Widerspruch
+       sowie auf Beschwerde bei einer Aufsichtsbehörde. Da die App anonym arbeitet, können wir
+       einzelne Beiträge in der Regel nur über den zugehörigen Zugangscode zuordnen. Für Anfragen
+       genügt eine E-Mail an <a href="mailto:michaeldall396@gmail.com">michaeldall396@gmail.com</a>.</p>
+
+    <hr class="lang-sep">
+
+    <!-- ===================== ENGLISH ===================== -->
+    <h1>Privacy Notice</h1>
+    <p class="lead">This instance of PULS is a private live-polling tool. We keep data processing deliberately minimal.</p>
+
+    <h2>Controller</h2>
+    <p>The operator of this instance is responsible for data processing and can be reached at
+       <a href="mailto:michaeldall396@gmail.com">michaeldall396@gmail.com</a>.</p>
+
+    <h2>What data is processed</h2>
+    <ul>
+      <li><b>Poll answers</b> — the votes and free text submitted by participants (word-cloud terms,
+          open answers, Q&amp;A questions). Free text may contain personal information if participants
+          choose to type it.</li>
+      <li><b>IP address</b> — only briefly and solely for abuse prevention (rate-limiting the creation
+          of presentations). Deleted automatically after one hour.</li>
+      <li><b>Random device identifier</b> — a random string in the browser's local storage so the same
+          person isn't counted twice. No name, no account.</li>
+    </ul>
+    <p>There is <b>no sign-in, no cookies, no trackers</b>, and no sharing for advertising.</p>
+
+    <h2>Purpose and legal basis</h2>
+    <p>Processing serves only to run the respective live poll (Art. 6(1)(b)/(f) GDPR — performing the
+       requested function and legitimate interest in a working, abuse-protected service).</p>
+
+    <h2>Storage location and retention</h2>
+    <p>Data is stored with <b>Upstash (Redis database) in the Frankfurt, Germany (EU) region</b>;
+       hosting is provided by <b>Vercel</b> with execution in the Frankfurt region. Presentations and
+       their answers are <b>automatically deleted after 60 days of inactivity</b>. The presenter can
+       reset answers or delete the presentation at any time.</p>
+
+    <h2>Processors</h2>
+    <p>Vercel Inc. and Upstash Inc. act as technical service providers. Data physically resides in the
+       EU (Frankfurt); cooperation is based on the respective data processing agreements and EU
+       Standard Contractual Clauses.</p>
+
+    <h2>Your rights</h2>
+    <p>You have the right to access, rectification, erasure, restriction and objection, and to lodge a
+       complaint with a supervisory authority. As the app is anonymous, individual contributions can
+       usually only be located via their access code. For requests, email
+       <a href="mailto:michaeldall396@gmail.com">michaeldall396@gmail.com</a>.</p>
+  </div>
+</main>
+
+</body>
+</html>

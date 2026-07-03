@@ -27,7 +27,8 @@ const DICT = {
   'landing.create.errFailed': { de: 'Erstellen fehlgeschlagen — läuft der Server noch?', en: 'Creation failed — is the server still running?' },
   'landing.mine.title': { de: 'Meine Präsentationen', en: 'My presentations' },
   'landing.mine.moderate': { de: 'Moderieren', en: 'Manage' },
-  'landing.footer': { de: 'PULS läuft vollständig auf diesem Server — keine externen Dienste, keine Datenübertragung nach außen.', en: 'PULS runs entirely on this server — no external services, no data leaves your network.' },
+  'landing.footer': { de: 'Keine Konten, keine Cookies, keine Tracker.', en: 'No accounts, no cookies, no trackers.' },
+  'landing.privacy': { de: 'Datenschutz', en: 'Privacy' },
   'landing.pageTitle': { de: 'PULS — Live-Umfragen', en: 'PULS — Live Polling' },
 
   // --- Gemeinsame Felder ------------------------------------------------------
