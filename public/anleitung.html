@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>PULS — Quickstart-Anleitung</title>
+<title>PULS — Quickstart</title>
 <link rel="icon" type="image/svg+xml" href="/favicon.svg">
 <link rel="stylesheet" href="/design-system.css">
 <link rel="stylesheet" href="/app.css">
@@ -26,7 +26,7 @@
   .step-body p { font-size: 0.95rem; color: var(--grey-6); line-height: 1.55; margin: 0 0 0.6rem; }
   .step-body ul { margin: 0.2rem 0 0.7rem; padding-left: 1.15rem; }
   .step-body li { font-size: 0.92rem; color: var(--grey-6); line-height: 1.5; margin-bottom: 0.2rem; }
-  .step-body li b { color: var(--black); }
+  .step-body li b, .step-body p b { color: var(--black); }
   .shot { margin-top: 0.4rem; border: 1px solid var(--grey-1); border-radius: var(--radius); overflow: hidden; background: var(--white); }
   .shot img { display: block; width: 100%; height: auto; }
   .shot.phone { max-width: 300px; }
@@ -40,12 +40,8 @@
 
   .tip { background: var(--surface); border-radius: var(--radius); padding: 0.9rem 1.1rem; margin: 1.5rem 0; font-size: 0.9rem; color: var(--grey-6); line-height: 1.5; }
   .tip b { color: var(--black); }
+  .pdf-fab { position: sticky; bottom: 1.25rem; float: right; margin-top: 1rem; }
 
-  .pdf-fab {
-    position: sticky; bottom: 1.25rem; float: right; margin-top: 1rem;
-  }
-
-  /* --- Druck / PDF --------------------------------------------------------- */
   @media print {
     .no-print { display: none !important; }
     body { background: var(--white); }
@@ -54,7 +50,6 @@
     .guide-cover { break-after: avoid; }
     h2, .feature-h { break-after: avoid; }
     a { color: inherit; text-decoration: none; }
-    /* Farben im PDF erhalten */
     * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     @page { margin: 14mm 14mm 16mm; }
   }
@@ -65,111 +60,148 @@
 <header class="ds-header no-print">
   <a class="brand ds-title" href="/"><b>PULS</b> <span>Quickstart</span></a>
   <div class="ds-header-controls">
-    <a class="ds-btn ds-btn-primary" href="/anleitung.pdf" download="PULS-Anleitung.pdf">PDF herunterladen</a>
-    <button class="ds-btn" id="btnPrint" type="button">Drucken</button>
-    <a class="ds-btn" href="/">Zur App</a>
+    <a class="ds-btn ds-btn-primary" id="pdfLink" href="/anleitung.pdf" download>PDF</a>
+    <button class="ds-btn" id="btnPrint" type="button">Print</button>
+    <a class="ds-btn" id="toApp" href="/">App</a>
+    <span id="langToggle"></span>
   </div>
 </header>
 
-<main>
-  <div class="guide">
-
-    <section class="guide-cover">
-      <div class="kicker">Live-Umfragen · Anleitung</div>
-      <h1>In 5 Minuten zur ersten Live‑Umfrage</h1>
-      <p>PULS ist ein Werkzeug für interaktive Präsentationen: Sie stellen Fragen, das Publikum stimmt per Code auf dem eigenen Handy ab, und die Ergebnisse erscheinen live auf der Leinwand. Keine Konten, keine Installation — nur ein Browser.</p>
-      <div class="guide-meta">Für den Moderator (Sie) genügt ein Laptop mit Beamer, für das Publikum ein Smartphone. Diese Seite lässt sich oben rechts über <b>„Als PDF speichern"</b> als PDF sichern oder ausdrucken.</div>
-    </section>
-
-    <div class="step">
-      <div class="step-num">1</div>
-      <div class="step-body">
-        <h2>Präsentation erstellen</h2>
-        <p>Öffnen Sie die Startseite, geben Sie unter <b>„Neue Präsentation erstellen"</b> einen Titel ein und klicken Sie auf <b>Erstellen</b>. Sie erhalten sofort einen Moderationslink und einen sechsstelligen Zugangscode für das Publikum.</p>
-        <ul>
-          <li>Der <b>Moderationslink</b> ist Ihr privater Bearbeitungs‑ und Steuerlink — nur für Sie.</li>
-          <li>Ihre Präsentationen erscheinen auf demselben Gerät wieder unter <b>„Meine Präsentationen"</b>.</li>
-        </ul>
-        <div class="shot"><img src="/img/anleitung/01-start.png" alt="Startseite: Präsentation erstellen oder mit Code beitreten"></div>
-        <div class="cap">Startseite — links beitreten (Publikum), rechts erstellen (Moderation).</div>
-      </div>
-    </div>
-
-    <div class="step">
-      <div class="step-num">2</div>
-      <div class="step-body">
-        <h2>Folien anlegen</h2>
-        <p>Im Editor fügen Sie über <b>„+ Neue Folie"</b> Folien hinzu. Wählen Sie je Folie einen <b>Folientyp</b> und tippen Sie Frage und Optionen ein — alles wird automatisch gespeichert.</p>
-        <ul>
-          <li><b>Multiple Choice</b> · <b>Wortwolke</b> · <b>Offene Frage</b> · <b>Skala</b></li>
-          <li><b>Ranking</b> (Reihenfolge) · <b>100 Punkte</b> (Punkte verteilen) · <b>Quiz</b> (mit richtiger Antwort)</li>
-          <li><b>Q&amp;A</b> (Fragen aus dem Publikum mit 👍) · <b>Infofolie</b></li>
-        </ul>
-        <div class="shot"><img src="/img/anleitung/02-editor.png" alt="Editor mit Folienliste, Präsentationsoptionen und Folientyp-Auswahl"></div>
-        <div class="cap">Editor — Zugangscode/QR, Folienliste, Präsentationsoptionen und Folien‑Einstellungen.</div>
-      </div>
-    </div>
-
-    <div class="step">
-      <div class="step-num">3</div>
-      <div class="step-body">
-        <h2>Präsentieren</h2>
-        <p>Klicken Sie oben rechts auf <b>Präsentieren</b>. Auf der Leinwand erscheinen Zugangscode und QR‑Code — das Publikum steigt darüber ein. Die Ergebnisse aktualisieren sich in Echtzeit.</p>
-        <ul>
-          <li>Mit <b>← Zurück / Weiter →</b> (oder den Pfeiltasten) wechseln Sie die Folie.</li>
-          <li><b>Ergebnisse ausblenden</b> versteckt die Auswertung, <b>Abstimmung sperren</b> beendet die Abstimmung.</li>
-        </ul>
-        <div class="shot"><img src="/img/anleitung/03-praesentieren.png" alt="Präsentationsmodus mit Live-Balkendiagramm, Code und QR-Code"></div>
-        <div class="cap">Präsentationsmodus — Live‑Ergebnis, Beitrittscode und QR unten links.</div>
-      </div>
-    </div>
-
-    <div class="step">
-      <div class="step-num">4</div>
-      <div class="step-body">
-        <h2>Das Publikum stimmt ab</h2>
-        <p>Die Teilnehmenden öffnen die angezeigte Adresse (oder scannen den QR‑Code), geben den Code ein — und beantworten die aktuelle Frage auf ihrem Handy. Ganz unten können sie zusätzlich mit Emojis reagieren.</p>
-        <div class="shot phone"><img src="/img/anleitung/04-abstimmen.png" alt="Handy-Ansicht: Frage mit Antwortoptionen und Reaktions-Emojis"></div>
-        <div class="cap">Teilnehmer‑Ansicht auf dem Smartphone.</div>
-      </div>
-    </div>
-
-    <div class="step">
-      <div class="step-num">5</div>
-      <div class="step-body">
-        <h2>Quiz mit Rangliste</h2>
-        <p>Beim Folientyp <b>Quiz</b> markieren Sie die richtige Antwort. Teilnehmende bekommen sofort Rückmeldung, richtige (und schnelle) Antworten geben Punkte, und eine <b>🏆 Rangliste</b> zeigt die Führenden. Die Auflösung erscheint erst, wenn Sie <b>Ergebnisse einblenden</b> klicken.</p>
-        <div class="shot"><img src="/img/anleitung/05-quiz.png" alt="Quiz-Auflösung mit grün markierter richtiger Antwort und Rangliste"></div>
-        <div class="cap">Quiz nach der Auflösung — richtige Antwort grün, darunter die Rangliste.</div>
-      </div>
-    </div>
-
-    <h2 class="feature-h">Weitere Funktionen</h2>
-    <div class="feature-grid">
-      <div class="feat"><b>Branding</b><span>Akzentfarbe und eigenes Logo pro Präsentation.</span></div>
-      <div class="feat"><b>Namen erfassen</b><span>Optional; Namen erscheinen bei Q&amp;A, offenen Antworten und in der Quiz‑Rangliste.</span></div>
-      <div class="feat"><b>Selbststeuerung</b><span>Das Publikum blättert im eigenen Tempo durch alle Folien.</span></div>
-      <div class="feat"><b>Q&amp;A‑Moderation</b><span>Fragen erst nach Ihrer Freigabe öffentlich zeigen.</span></div>
-      <div class="feat"><b>Reaktionen</b><span>Live‑Emojis (👍 ❤️ 👏 …) vom Publikum.</span></div>
-      <div class="feat"><b>Trends über Sitzungen</b><span>„Neue Sitzung starten" archiviert die Ergebnisse; ein Verlauf vergleicht mehrere Durchläufe.</span></div>
-      <div class="feat"><b>Export</b><span>Ergebnisse als <b>Excel</b> und <b>PowerPoint</b> herunterladen.</span></div>
-      <div class="feat"><b>Anonym &amp; datensparsam</b><span>Keine Konten, keine Cookies, keine Tracker.</span></div>
-    </div>
-
-    <div class="tip">
-      <b>Tipp:</b> Erstellen Sie Ihre Folien in Ruhe vorab. Am Veranstaltungstag genügt es, den Moderationslink zu öffnen, auf <b>Präsentieren</b> zu klicken und den Code zu zeigen. Ergebnisse bleiben auch nach der Veranstaltung erhalten und lassen sich exportieren.
-    </div>
-
-    <a class="ds-btn ds-btn-primary pdf-fab no-print" href="/anleitung.pdf" download="PULS-Anleitung.pdf">PDF herunterladen</a>
-  </div>
-</main>
+<main><div class="guide" id="guide"></div></main>
 
 <footer class="footer-note no-print" style="text-align:center;">
-  <a href="/">Zur App</a> · <a href="/datenschutz.html">Datenschutz</a>
+  <a href="/" id="footApp">Zur App</a> · <a href="/datenschutz.html" id="footPrivacy">Datenschutz</a>
 </footer>
 
+<script src="/i18n.js"></script>
 <script>
-  document.getElementById('btnPrint').addEventListener('click', () => window.print());
+'use strict';
+
+const SHOTS = ['01-start.png', '02-editor.png', '03-praesentieren.png', '04-abstimmen.png', '05-quiz.png'];
+
+const GUIDE = {
+  de: {
+    title: 'PULS — Quickstart', pdf: 'PDF herunterladen', print: 'Drucken', app: 'Zur App', privacy: 'Datenschutz',
+    kicker: 'Live-Umfragen · Anleitung',
+    h1: 'In 5 Minuten zur ersten Live‑Umfrage',
+    intro: 'PULS ist ein Werkzeug für interaktive Präsentationen: Sie stellen Fragen, das Publikum stimmt per Code auf dem eigenen Handy ab, und die Ergebnisse erscheinen live auf der Leinwand. Keine Konten, keine Installation — nur ein Browser.',
+    meta: 'Für den Moderator (Sie) genügt ein Laptop mit Beamer, für das Publikum ein Smartphone. Diese Seite lässt sich oben rechts über <b>„PDF herunterladen"</b> als PDF sichern oder ausdrucken.',
+    steps: [
+      { h2: 'Präsentation erstellen', img: 0,
+        body: '<p>Öffnen Sie die Startseite, geben Sie unter <b>„Neue Präsentation erstellen"</b> einen Titel ein und klicken Sie auf <b>Erstellen</b>. Sie erhalten sofort einen Moderationslink und einen sechsstelligen Zugangscode für das Publikum.</p><ul><li>Der <b>Moderationslink</b> ist Ihr privater Bearbeitungs‑ und Steuerlink — nur für Sie.</li><li>Ihre Präsentationen erscheinen auf demselben Gerät wieder unter <b>„Meine Präsentationen"</b>.</li></ul>',
+        cap: 'Startseite — links beitreten (Publikum), rechts erstellen (Moderation).' },
+      { h2: 'Folien anlegen', img: 1,
+        body: '<p>Im Editor fügen Sie über <b>„+ Neue Folie"</b> Folien hinzu. Wählen Sie je Folie einen <b>Folientyp</b> und tippen Sie Frage und Optionen ein — alles wird automatisch gespeichert.</p><ul><li><b>Multiple Choice</b> · <b>Wortwolke</b> · <b>Offene Frage</b> · <b>Skala</b></li><li><b>Ranking</b> · <b>100 Punkte</b> · <b>Quiz</b> (mit richtiger Antwort)</li><li><b>Q&amp;A</b> (Fragen aus dem Publikum mit 👍) · <b>Infofolie</b></li></ul>',
+        cap: 'Editor — Zugangscode/QR, Folienliste, Präsentationsoptionen und Folien‑Einstellungen.' },
+      { h2: 'Präsentieren', img: 2,
+        body: '<p>Klicken Sie oben rechts auf <b>Präsentieren</b>. Auf der Leinwand erscheinen Zugangscode und QR‑Code — das Publikum steigt darüber ein. Die Ergebnisse aktualisieren sich in Echtzeit.</p><ul><li>Mit <b>← Zurück / Weiter →</b> (oder den Pfeiltasten) wechseln Sie die Folie.</li><li><b>Ergebnisse ausblenden</b> versteckt die Auswertung, <b>Abstimmung sperren</b> beendet sie.</li></ul>',
+        cap: 'Präsentationsmodus — Live‑Ergebnis, Beitrittscode und QR unten links.' },
+      { h2: 'Das Publikum stimmt ab', img: 3, phone: true,
+        body: '<p>Die Teilnehmenden öffnen die angezeigte Adresse (oder scannen den QR‑Code), geben den Code ein — und beantworten die aktuelle Frage auf ihrem Handy. Ganz unten können sie zusätzlich mit Emojis reagieren.</p>',
+        cap: 'Teilnehmer‑Ansicht auf dem Smartphone.' },
+      { h2: 'Quiz mit Rangliste', img: 4,
+        body: '<p>Beim Folientyp <b>Quiz</b> markieren Sie die richtige Antwort. Teilnehmende bekommen sofort Rückmeldung, richtige (und schnelle) Antworten geben Punkte, und eine <b>🏆 Rangliste</b> zeigt die Führenden. Die Auflösung erscheint erst, wenn Sie <b>Ergebnisse einblenden</b> klicken.</p>',
+        cap: 'Quiz nach der Auflösung — richtige Antwort grün, darunter die Rangliste.' },
+    ],
+    featuresTitle: 'Weitere Funktionen',
+    features: [
+      ['Branding', 'Akzentfarbe und eigenes Logo pro Präsentation.'],
+      ['Namen erfassen', 'Optional; Namen erscheinen bei Q&amp;A, offenen Antworten und in der Quiz‑Rangliste.'],
+      ['Selbststeuerung', 'Das Publikum blättert im eigenen Tempo durch alle Folien.'],
+      ['Q&amp;A‑Moderation', 'Fragen erst nach Ihrer Freigabe öffentlich zeigen.'],
+      ['Reaktionen', 'Live‑Emojis (👍 ❤️ 👏 …) vom Publikum.'],
+      ['Trends über Sitzungen', '„Neue Sitzung starten" archiviert die Ergebnisse; ein Verlauf vergleicht mehrere Durchläufe.'],
+      ['Export', 'Ergebnisse als <b>Excel</b> und <b>PowerPoint</b> herunterladen.'],
+      ['Anonym &amp; datensparsam', 'Keine Konten, keine Cookies, keine Tracker.'],
+    ],
+    tip: '<b>Tipp:</b> Erstellen Sie Ihre Folien in Ruhe vorab. Am Veranstaltungstag genügt es, den Moderationslink zu öffnen, auf <b>Präsentieren</b> zu klicken und den Code zu zeigen. Ergebnisse bleiben auch nach der Veranstaltung erhalten und lassen sich exportieren.',
+  },
+  en: {
+    title: 'PULS — Quickstart', pdf: 'Download PDF', print: 'Print', app: 'To the app', privacy: 'Privacy',
+    kicker: 'Live polling · Guide',
+    h1: 'Your first live poll in 5 minutes',
+    intro: 'PULS is a tool for interactive presentations: you ask questions, the audience votes via a code on their own phone, and results appear live on the screen. No accounts, no installation — just a browser.',
+    meta: 'As the host you only need a laptop with a projector; the audience needs a smartphone. You can save this page as a PDF or print it via <b>„Download PDF"</b> in the top right.',
+    steps: [
+      { h2: 'Create a presentation', img: 0,
+        body: '<p>Open the start page, enter a title under <b>„Create a new presentation"</b> and click <b>Create</b>. You immediately get a presenter link and a six‑digit access code for your audience.</p><ul><li>The <b>presenter link</b> is your private editing and control link — only for you.</li><li>Your presentations reappear on the same device under <b>„My presentations"</b>.</li></ul>',
+        cap: 'Start page — join on the left (audience), create on the right (host).' },
+      { h2: 'Build your slides', img: 1,
+        body: '<p>In the editor, add slides via <b>„+ New slide"</b>. For each slide pick a <b>slide type</b> and type the question and options — everything is saved automatically.</p><ul><li><b>Multiple Choice</b> · <b>Word Cloud</b> · <b>Open Question</b> · <b>Scale</b></li><li><b>Ranking</b> · <b>100 Points</b> · <b>Quiz</b> (with a correct answer)</li><li><b>Q&amp;A</b> (audience questions with 👍) · <b>Info slide</b></li></ul>',
+        cap: 'Editor — access code/QR, slide list, presentation options and slide settings.' },
+      { h2: 'Present', img: 2,
+        body: '<p>Click <b>Present</b> in the top right. The screen shows the access code and a QR code — the audience joins through them. Results update in real time.</p><ul><li>Use <b>← Back / Next →</b> (or the arrow keys) to change slides.</li><li><b>Hide results</b> conceals the tally, <b>Lock voting</b> ends it.</li></ul>',
+        cap: 'Presentation mode — live results, join code and QR at the bottom left.' },
+      { h2: 'The audience votes', img: 3, phone: true,
+        body: '<p>Participants open the shown address (or scan the QR code), enter the code — and answer the current question on their phone. At the bottom they can also react with emojis.</p>',
+        cap: 'Participant view on a smartphone.' },
+      { h2: 'Quiz with a leaderboard', img: 4,
+        body: '<p>With the <b>Quiz</b> slide type you mark the correct answer. Participants get instant feedback, correct (and fast) answers earn points, and a <b>🏆 leaderboard</b> shows the frontrunners. The answer is only revealed once you click <b>Show results</b>.</p>',
+        cap: 'Quiz after the reveal — correct answer in green, leaderboard below.' },
+    ],
+    featuresTitle: 'More features',
+    features: [
+      ['Branding', 'Accent colour and your own logo per presentation.'],
+      ['Collect names', 'Optional; names appear on Q&amp;A, open answers and the quiz leaderboard.'],
+      ['Self-paced', 'The audience moves through all slides at their own pace.'],
+      ['Q&amp;A moderation', 'Show questions publicly only after your approval.'],
+      ['Reactions', 'Live emojis (👍 ❤️ 👏 …) from the audience.'],
+      ['Trends across sessions', '„Start new session" archives the results; a history compares several runs.'],
+      ['Export', 'Download results as <b>Excel</b> and <b>PowerPoint</b>.'],
+      ['Anonymous &amp; data-minimal', 'No accounts, no cookies, no trackers.'],
+    ],
+    tip: '<b>Tip:</b> Build your slides calmly in advance. On the day, just open the presenter link, click <b>Present</b> and show the code. Results stay available after the event and can be exported.',
+  },
+};
+
+function shotSrc(lang, file) { return lang === 'en' ? '/img/anleitung/en/' + file : '/img/anleitung/' + file; }
+function esc(s) { return String(s); } // Inhalte sind vertrauenswürdig (fest im Skript)
+
+function render(lang) {
+  const g = GUIDE[lang] || GUIDE.de;
+  document.title = g.title;
+  document.documentElement.lang = lang;
+  let html = `
+    <section class="guide-cover">
+      <div class="kicker">${g.kicker}</div>
+      <h1>${g.h1}</h1>
+      <p>${g.intro}</p>
+      <div class="guide-meta">${g.meta}</div>
+    </section>`;
+  g.steps.forEach((st, i) => {
+    html += `
+      <div class="step">
+        <div class="step-num">${i + 1}</div>
+        <div class="step-body">
+          <h2>${st.h2}</h2>
+          ${st.body}
+          <div class="shot${st.phone ? ' phone' : ''}"><img src="${shotSrc(lang, SHOTS[st.img])}" alt="${st.h2}"></div>
+          <div class="cap">${st.cap}</div>
+        </div>
+      </div>`;
+  });
+  html += `<h2 class="feature-h">${g.featuresTitle}</h2><div class="feature-grid">`;
+  g.features.forEach(([b, s]) => { html += `<div class="feat"><b>${b}</b><span>${s}</span></div>`; });
+  html += `</div><div class="tip">${g.tip}</div>`;
+  html += `<a class="ds-btn ds-btn-primary pdf-fab no-print" href="${lang === 'en' ? '/anleitung-en.pdf' : '/anleitung.pdf'}" download>${g.pdf}</a>`;
+  document.getElementById('guide').innerHTML = html;
+
+  // Kopf-/Fußzeile lokalisieren
+  document.getElementById('pdfLink').textContent = g.pdf;
+  document.getElementById('pdfLink').setAttribute('href', lang === 'en' ? '/anleitung-en.pdf' : '/anleitung.pdf');
+  document.getElementById('btnPrint').textContent = g.print;
+  document.getElementById('toApp').textContent = g.app;
+  document.getElementById('footApp').textContent = g.app;
+  document.getElementById('footPrivacy').textContent = g.privacy;
+}
+
+// ?lang= erlaubt es dem PDF-Renderer, die Sprache zu erzwingen
+const forced = new URLSearchParams(location.search).get('lang');
+if (forced === 'en' || forced === 'de') setLang(forced);
+render(getLang());
+
+initLangToggle(document.getElementById('langToggle'), () => render(getLang()));
+document.getElementById('btnPrint').addEventListener('click', () => window.print());
 </script>
 </body>
 </html>
