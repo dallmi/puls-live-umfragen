@@ -128,6 +128,8 @@ function touch(pres) {
 // ---------------------------------------------------------------------------
 
 const SLIDE_TYPES = ['choice', 'wordcloud', 'open', 'scale', 'qa', 'info'];
+const REACTIONS = ['👍', '❤️', '👏', '😂', '😮', '🎉']; // erlaubte Emoji-Reaktionen
+const REACTION_WINDOW_MS = 6000; // Reaktionen sind ephemer: nur die letzten Sekunden werden gezeigt
 
 function newJoinCode() {
   for (let i = 0; i < 200; i++) {
@@ -338,6 +340,7 @@ function snapshot(presId) {
     slide: publicSlide(slide),
     results: pres.resultsHidden ? null : computeResults(slide, !!pres.collectNames),
     audience: audienceCount(presId),
+    reactions: (pres.reactions || []).filter((r) => r.ts > Date.now() - REACTION_WINDOW_MS),
   };
 }
 
@@ -960,6 +963,19 @@ async function handleApi(req, res, url) {
     touch(pres);
     saveStore();
     broadcast(pres.id);
+    return sendJSON(res, 200, { ok: true });
+  }
+
+  // POST /api/presentations/:id/react — Emoji-Reaktion (Publikum, ephemer, nicht persistiert)
+  if (sub === '/react' && method === 'POST') {
+    const body = await readBody(req);
+    const emoji = String(body.emoji || '');
+    if (!REACTIONS.includes(emoji)) return sendJSON(res, 400, { error: 'bad_emoji' });
+    const now = Date.now();
+    pres.reactions = (pres.reactions || []).filter((r) => r.ts > now - REACTION_WINDOW_MS);
+    pres.reactions.push({ emoji, ts: now });
+    if (pres.reactions.length > 60) pres.reactions = pres.reactions.slice(-60);
+    broadcast(pres.id); // absichtlich kein saveStore — Reaktionen sind flüchtig
     return sendJSON(res, 200, { ok: true });
   }
 

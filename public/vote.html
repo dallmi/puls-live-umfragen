@@ -25,6 +25,9 @@
       <p data-i18n="vote.connecting">Verbinde …</p>
     </div>
   </div>
+  <div class="vote-shell" style="padding-top:0;">
+    <div class="reaction-bar" id="reactionBar" hidden></div>
+  </div>
 </main>
 
 <footer class="footer-note" style="text-align:center;">
@@ -71,6 +74,7 @@ async function init() {
   try {
     const joined = await api('GET', `/api/join/${CODE}`);
     presId = joined.id;
+    setupReactionBar();
     connectStream(presId, 'audience', onSnapshot);
   } catch {
     root.innerHTML = `
@@ -103,11 +107,29 @@ function onSnapshot(s) {
   }
   updateResults();
   updateMeta();
+  updateReactionBar();
 }
 
 function updateMeta() {
   const pos = document.getElementById('posLabel');
   if (pos && snap.slideCount) pos.textContent = t('common.slidePosition', { n: snap.activeIndex + 1, total: snap.slideCount });
+}
+
+function setupReactionBar() {
+  const bar = document.getElementById('reactionBar');
+  if (!bar || bar.childElementCount) return;
+  REACTION_EMOJIS.forEach((emoji) => {
+    const btn = el(`<button class="reaction-btn" aria-label="${t('vote.react.aria')}">${emoji}</button>`);
+    btn.addEventListener('click', () => sendReaction(presId, emoji));
+    bar.appendChild(btn);
+  });
+}
+
+function updateReactionBar() {
+  const bar = document.getElementById('reactionBar');
+  if (!bar) return;
+  const gated = snap.collectNames && !storedName();
+  bar.hidden = !(snap.slide && !gated);
 }
 
 // ---------------------------------------------------------------------------

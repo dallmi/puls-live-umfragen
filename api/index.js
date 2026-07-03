@@ -21,6 +21,8 @@ import {
 
 const TTL_SECONDS = 60 * 24 * 60 * 60;   // 60 Tage Inaktivität → automatischer Ablauf
 const CREATE_MAX = 30;                    // Neuanlagen pro Stunde je IP
+const REACTIONS = ['👍', '❤️', '👏', '😂', '😮', '🎉']; // erlaubte Emoji-Reaktionen
+const REACTION_WINDOW_MS = 6000;          // Reaktionen sind ephemer (letzte Sekunden)
 
 // ---------------------------------------------------------------------------
 // Speicher: Upstash Redis (REST) mit In-Memory-Fallback
@@ -118,6 +120,7 @@ function snapshot(pres) {
     slide: publicSlide(slide),
     results: pres.resultsHidden ? null : computeResults(slide, !!pres.collectNames),
     audience: 0, // serverlos: keine dauerhaften Verbindungen zum Zählen
+    reactions: (pres.reactions || []).filter((r) => r.ts > Date.now() - REACTION_WINDOW_MS),
   };
 }
 
@@ -253,6 +256,19 @@ export default async function handler(req, res) {
       if (!found) return json(res, 404, { error: 'question_unknown' });
       pres.lastActivity = Date.now();
       await putPres(pres);
+      return json(res, 200, { ok: true });
+    }
+
+    // POST /api/presentations/:id/react — Emoji-Reaktion (Publikum, ephemer)
+    if (sub === '/react' && method === 'POST') {
+      const body = await readJson(req);
+      const emoji = String(body.emoji || '');
+      if (!REACTIONS.includes(emoji)) return json(res, 400, { error: 'bad_emoji' });
+      const now = Date.now();
+      pres.reactions = (pres.reactions || []).filter((r) => r.ts > now - REACTION_WINDOW_MS);
+      pres.reactions.push({ emoji, ts: now });
+      if (pres.reactions.length > 60) pres.reactions = pres.reactions.slice(-60);
+      await putPres(pres); // serverlos: muss persistiert werden, sonst sieht der Presenter nichts
       return json(res, 200, { ok: true });
     }
 

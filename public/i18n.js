@@ -114,6 +114,7 @@ const DICT = {
   'vote.name.placeholder': { de: 'Ihr Name', en: 'Your name' },
   'vote.name.submit': { de: 'Weiter', en: 'Continue' },
   'vote.name.err': { de: 'Konnte nicht gespeichert werden — bitte erneut versuchen.', en: 'Could not be saved — please try again.' },
+  'vote.react.aria': { de: 'Reaktion senden', en: 'Send reaction' },
   'vote.results.title': { de: 'Live-Ergebnis', en: 'Live results' },
   'vote.choice.submit': { de: 'Abstimmen', en: 'Vote' },
   'vote.choice.recorded': { de: 'Stimme erfasst. Sie können Ihre Auswahl ändern und erneut abstimmen.', en: 'Vote recorded. You can change your selection and vote again.' },

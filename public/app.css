@@ -285,6 +285,32 @@ main { flex: 1; width: 100%; }
 .info-text { font-size: 1.05rem; color: var(--grey-6); max-width: 46rem; line-height: 1.6; }
 .present-results .info-text { font-size: 1.4rem; }
 
+/* --- Reaktionen (Emojis) ---------------------------------------------------------- */
+/* Reaktionsleiste auf der Abstimmungsseite */
+.reaction-bar {
+  display: flex; justify-content: center; gap: 0.5rem; flex-wrap: wrap;
+  margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--grey-1);
+}
+.reaction-btn {
+  font-size: 1.5rem; line-height: 1; padding: 0.4rem 0.65rem; cursor: pointer;
+  background: var(--white); border: 1px solid var(--grey-2); border-radius: var(--radius);
+  transition: transform 0.1s ease, border-color 0.15s;
+}
+.reaction-btn:hover { border-color: var(--grey-4); }
+.reaction-btn:active { transform: scale(1.35); }
+
+/* Fliegende Emojis über der Präsentationsfläche */
+.present-reactions { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 5; }
+.floating-reaction {
+  position: absolute; bottom: 1rem; pointer-events: none; user-select: none;
+  animation: float-up 3s ease-out forwards; will-change: transform, opacity;
+}
+@keyframes float-up {
+  0%   { transform: translateY(0) translateX(0) scale(0.6); opacity: 0; }
+  12%  { opacity: 1; }
+  100% { transform: translateY(-78vh) translateX(var(--drift, 0)) scale(1.15); opacity: 0; }
+}
+
 /* --- Diverses ---------------------------------------------------------------------- */
 .results-meta { font-size: 0.75rem; color: var(--grey-4); margin-top: 1rem; }
 .results-empty, .results-hidden { color: var(--grey-4); font-size: 0.95rem; padding: 2rem 0; }

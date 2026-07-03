@@ -156,6 +156,7 @@
 
 <!-- Präsentationsmodus -->
 <div class="present-mode" id="presentMode" hidden>
+  <div class="present-reactions" id="presentReactions"></div>
   <div class="present-topbar">
     <div class="join-line" id="presentJoinLine"></div>
     <div style="display:flex; align-items:center; gap:1.25rem;">
@@ -209,6 +210,7 @@ let stream = null;
 let lastSnapshot = null;
 let publicBase = location.origin; // Adresse, unter der das Publikum beitritt
 let lastSaveState = null;         // 'saving' | 'saved' | 'failed' | null — für refreshLanguage()
+let lastReactionTs = 0;           // jüngste bereits animierte Reaktion
 
 /* Läuft der Presenter auf localhost, ist diese Adresse für Handys nicht
    erreichbar — dann die LAN-Adresse des Servers verwenden (QR-Code!). */
@@ -514,6 +516,8 @@ async function enterPresent() {
   $('presentJoinLine').innerHTML =
     `${t('presenter.access.joinAt')} <b>${esc(joinUrl)}</b> — Code <b>${formatCode(pres.code)}</b>`;
   renderQR($('presentQr'), `${publicBase}/${pres.code}`, 64);
+  lastReactionTs = Date.now(); // beim Start keine gepufferten Alt-Reaktionen abfeuern
+  $('presentReactions').innerHTML = '';
   if (lastSnapshot) onSnapshot(lastSnapshot);
   if (document.documentElement.requestFullscreen) {
     document.documentElement.requestFullscreen().catch(() => {});
@@ -542,6 +546,7 @@ function onSnapshot(snap) {
   lastSnapshot = snap;
   scheduleResultsRefresh(); // Ergebnis-Panel im Editor aktuell halten
   if (!presenting) return;
+  lastReactionTs = animateReactions($('presentReactions'), snap.reactions, lastReactionTs);
   $('presentPos').textContent = snap.slideCount ? `${snap.activeIndex + 1} / ${snap.slideCount}` : '0 / 0';
   $('audienceCount').textContent = t('presenter.present.audience', { n: snap.audience });
   $('btnToggleResults').textContent = snap.resultsHidden ? t('presenter.present.showResults') : t('presenter.present.hideResults');

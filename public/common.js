@@ -127,6 +127,39 @@ function typeMeta(type) {
 const BRAND_SEQUENCE = ['#8A000A', '#7A7870', '#B98E2C', '#5A5D5C', '#946F29', '#8E8D83', '#6C5312', '#404040'];
 
 // ---------------------------------------------------------------------------
+// Reaktionen (Emojis)
+// ---------------------------------------------------------------------------
+
+const REACTION_EMOJIS = ['👍', '❤️', '👏', '😂', '😮', '🎉'];
+
+function sendReaction(presId, emoji) {
+  api('POST', `/api/presentations/${presId}/react`, { emoji }).catch(() => {});
+}
+
+/** Ein aufsteigendes, verblassendes Emoji in den Container werfen (Presenter-Ansicht). */
+function spawnFloatingReaction(container, emoji) {
+  const span = el(`<span class="floating-reaction">${emoji}</span>`);
+  span.style.left = (4 + Math.random() * 88) + '%';
+  span.style.setProperty('--drift', (Math.random() * 80 - 40).toFixed(0) + 'px');
+  span.style.fontSize = (1.8 + Math.random() * 1.6).toFixed(2) + 'rem';
+  container.appendChild(span);
+  span.addEventListener('animationend', () => span.remove());
+}
+
+/**
+ * Neue Reaktionen aus einem Snapshot animieren. Gibt den neuen „lastTs" zurück.
+ * Auf SSE (sofort) je eine; auf Polling (Wellen) leicht gestaffelt.
+ */
+function animateReactions(container, reactions, lastTs) {
+  if (!container || !Array.isArray(reactions)) return lastTs;
+  const fresh = reactions.filter((r) => r && r.ts > lastTs).sort((a, b) => a.ts - b.ts);
+  fresh.forEach((r, i) => {
+    setTimeout(() => spawnFloatingReaction(container, r.emoji), Math.min(i * 90, 1400));
+  });
+  return reactions.reduce((m, r) => Math.max(m, r.ts || 0), lastTs);
+}
+
+// ---------------------------------------------------------------------------
 // Ergebnis-Rendering (Presenter & Publikum teilen sich diese Renderer)
 // ---------------------------------------------------------------------------
 
