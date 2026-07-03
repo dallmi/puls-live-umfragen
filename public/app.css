@@ -498,3 +498,11 @@ main { flex: 1; width: 100%; }
 .secure-qr svg { width: 150px; height: 150px; display: block; }
 .secure-qr-caption { margin-bottom: 1rem; }
 .secure-mail { display: inline-block; }
+
+/* Mockup D — Zugang-sichern-Ansicht nach dem Erstellen */
+.secure-view { max-width: 520px; margin: 2.5rem auto; }
+.secure-heading { font-size: 1.6rem; font-weight: 300; color: var(--black); }
+.secure-check { color: var(--success); font-weight: 600; }
+.secure-intro { font-size: 0.95rem; color: var(--grey-5); margin: 0.5rem 0 1.5rem; }
+.secure-card .secure-continue { margin-top: 1.25rem; }
+.secure-later { margin-top: 0.6rem; }

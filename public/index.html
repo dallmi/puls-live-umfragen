@@ -118,6 +118,8 @@ document.getElementById('joinCode').addEventListener('input', (e) => {
 });
 
 // --- Erstellen ---------------------------------------------------------------
+let secureState = null;   // { id, token, title } solange die Sicher-Ansicht sichtbar ist
+
 document.getElementById('createForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   const errEl = document.getElementById('createError');
@@ -129,11 +131,32 @@ document.getElementById('createForm').addEventListener('submit', async (e) => {
     const mine = JSON.parse(localStorage.getItem('puls.mine') || '[]');
     mine.unshift({ id: pres.id, code: pres.code, title: pres.title, adminToken: pres.adminToken });
     localStorage.setItem('puls.mine', JSON.stringify(mine.slice(0, 30)));
-    location.href = `/presenter.html?id=${pres.id}&token=${pres.adminToken}`;
+    showSecureView({ id: pres.id, token: pres.adminToken, title: pres.title });
   } catch {
     errEl.textContent = t('landing.create.errFailed');
   }
 });
+
+function showSecureView({ id, token, title }) {
+  secureState = { id, token, title };
+  const url = moderationUrl(id, token);
+  const container = document.querySelector('main .container');
+  container.innerHTML = '';
+  const view = el(`
+    <section class="secure-view">
+      <h1 class="secure-heading">${esc(t('landing.secure.heading'))} <span class="secure-check">✓</span></h1>
+      <p class="secure-intro">${esc(t('landing.secure.intro'))}</p>
+    </section>`);
+  const card = el('<div class="ds-card accent-primary secure-card"></div>');
+  card.appendChild(buildSecureBlock({ title, url }));
+  const cont = el(`<button type="button" class="ds-btn ds-btn-primary ds-btn-lg secure-continue">${esc(t('landing.secure.continue'))} →</button>`);
+  cont.addEventListener('click', () => { location.href = `/presenter.html?id=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`; });
+  const later = el(`<div class="help secure-later">${esc(t('landing.secure.laterHint'))}</div>`);
+  card.appendChild(cont);
+  card.appendChild(later);
+  view.appendChild(card);
+  container.appendChild(view);
+}
 
 function moderationUrl(id, token) {
   return `${location.origin}/presenter.html?id=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`;
