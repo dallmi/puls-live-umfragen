@@ -54,6 +54,13 @@
             <label for="presTitle" data-i18n="field.title.label">Titel</label>
             <input type="text" id="presTitle" maxlength="120">
           </div>
+          <div class="field" style="margin-bottom:0;">
+            <label style="display:flex; align-items:center; gap:0.5rem; font-weight:400;">
+              <input type="checkbox" id="optCollectNames" style="width:auto;">
+              <span data-i18n="presenter.details.collectNames">Namen erfassen (Teilnehmende geben beim Beitritt ihren Namen ein)</span>
+            </label>
+            <div class="help" data-i18n="presenter.details.collectNamesHelp">Namen erscheinen bei Q&amp;A und offenen Antworten. Ausgeschaltet bleibt alles anonym.</div>
+          </div>
         </div>
 
         <div class="ds-card" id="slideEditor" hidden>
@@ -223,6 +230,7 @@ async function load() {
   await resolvePublicBase();
   pres = await api('GET', `/api/presentations/${PRES_ID}`, undefined, TOKEN);
   $('presTitle').value = pres.title;
+  $('optCollectNames').checked = !!pres.collectNames;
   $('joinCodeBig').textContent = formatCode(pres.code);
   $('joinUrl').innerHTML = `${t('presenter.access.joinAt')} <b>${esc(publicBase.replace(/^https?:\/\//, ''))}</b>`;
   $('btnExport').href = `/api/presentations/${PRES_ID}/export.xlsx?token=${encodeURIComponent(TOKEN)}`;
@@ -414,6 +422,12 @@ $('presTitle').addEventListener('input', async (e) => {
       $('saveState').classList.add('saved');
     } catch { lastSaveState = 'failed'; $('saveState').textContent = t('presenter.save.failed'); }
   }, 600);
+});
+
+$('optCollectNames').addEventListener('change', async (e) => {
+  if (pres) pres.collectNames = e.target.checked;
+  try { await api('POST', `/api/presentations/${PRES_ID}/state`, { collectNames: e.target.checked }, TOKEN); }
+  catch { /* nächster Snapshot korrigiert die Anzeige */ }
 });
 
 $('btnAddSlide').addEventListener('click', () => {

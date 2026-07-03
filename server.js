@@ -152,6 +152,8 @@ function createPresentation(title) {
     activeIndex: 0,
     votingLocked: false,
     resultsHidden: false,
+    collectNames: false,
+    names: {},
     createdAt: now,
     lastActivity: now,
   };
@@ -202,10 +204,12 @@ function publicSlide(slide) {
   return rest;
 }
 
-/** Ergebnisse einer Folie berechnen. */
-function computeResults(slide) {
+/** Ergebnisse einer Folie berechnen. (showNames: Namen anzeigen ja/nein) */
+function computeResults(slide, showNames = false) {
   if (!slide) return null;
   const entries = Object.entries(slide.answers || {}); // [participantId, value]
+  // Namen sind am jeweiligen Beitrag gespeichert (zum Zeitpunkt der Abgabe).
+  const shownName = (item) => (showNames && item && item.name) ? String(item.name) : '';
   switch (slide.type) {
     case 'choice': {
       const counts = new Array((slide.options || []).length).fill(0);
@@ -246,7 +250,7 @@ function computeResults(slide) {
       for (const [, list] of entries) {
         if (!Array.isArray(list)) continue;
         for (const item of list) {
-          if (item && item.text) texts.push({ text: item.text, ts: item.ts || 0 });
+          if (item && item.text) texts.push({ text: item.text, ts: item.ts || 0, name: shownName(item) });
         }
       }
       texts.sort((a, b) => b.ts - a.ts);
@@ -270,7 +274,7 @@ function computeResults(slide) {
       for (const [, list] of entries) {
         if (!Array.isArray(list)) continue;
         for (const q of list) {
-          if (q && q.text) questions.push({ id: q.id, text: q.text, votes: Object.keys(q.upvotes || {}).length, ts: q.ts || 0 });
+          if (q && q.text) questions.push({ id: q.id, text: q.text, votes: Object.keys(q.upvotes || {}).length, ts: q.ts || 0, name: shownName(q) });
         }
       }
       questions.sort((a, b) => b.votes - a.votes || a.ts - b.ts);
@@ -330,8 +334,9 @@ function snapshot(presId) {
     activeIndex: pres.activeIndex,
     votingLocked: pres.votingLocked,
     resultsHidden: pres.resultsHidden,
+    collectNames: !!pres.collectNames,
     slide: publicSlide(slide),
-    results: pres.resultsHidden ? null : computeResults(slide),
+    results: pres.resultsHidden ? null : computeResults(slide, !!pres.collectNames),
     audience: audienceCount(presId),
   };
 }
@@ -748,7 +753,7 @@ function exportWorkbook(pres) {
   const sheets = [];
   const overviewData = [];
   pres.slides.forEach((slide, i) => {
-    const results = computeResults(slide);
+    const results = computeResults(slide, !!pres.collectNames);
     const label = { choice: 'Multiple Choice', wordcloud: 'Wortwolke', open: 'Offene Frage', scale: 'Skala', qa: 'Q&A', info: 'Infofolie' }[slide.type] || slide.type;
     overviewData.push([i + 1, label, slide.question || '', results && results.voters !== undefined ? results.voters : '']);
 
@@ -774,11 +779,17 @@ function exportWorkbook(pres) {
         };
         break;
       case 'open':
-        sheet = {
-          headers: ['Antwort', 'Zeitpunkt'],
-          data: [...results.texts].reverse().map((t) => [t.text, formatTs(t.ts)]),
-          totals: [['Antworten', results.texts.length]],
-        };
+        sheet = pres.collectNames
+          ? {
+            headers: ['Name', 'Antwort', 'Zeitpunkt'],
+            data: [...results.texts].reverse().map((t) => [t.name || '—', t.text, formatTs(t.ts)]),
+            totals: [['Antworten', results.texts.length, '']],
+          }
+          : {
+            headers: ['Antwort', 'Zeitpunkt'],
+            data: [...results.texts].reverse().map((t) => [t.text, formatTs(t.ts)]),
+            totals: [['Antworten', results.texts.length]],
+          };
         break;
       case 'scale': {
         const data = [];
@@ -794,11 +805,17 @@ function exportWorkbook(pres) {
         break;
       }
       case 'qa':
-        sheet = {
-          headers: ['Frage', 'Stimmen', 'Zeitpunkt'],
-          data: results.questions.map((q) => [q.text, q.votes, formatTs(q.ts)]),
-          totals: [['Fragen', results.questions.length]],
-        };
+        sheet = pres.collectNames
+          ? {
+            headers: ['Name', 'Frage', 'Stimmen', 'Zeitpunkt'],
+            data: results.questions.map((q) => [q.name || '—', q.text, q.votes, formatTs(q.ts)]),
+            totals: [['Fragen', results.questions.length, '', '']],
+          }
+          : {
+            headers: ['Frage', 'Stimmen', 'Zeitpunkt'],
+            data: results.questions.map((q) => [q.text, q.votes, formatTs(q.ts)]),
+            totals: [['Fragen', results.questions.length]],
+          };
         break;
     }
     if (sheet) {
@@ -889,10 +906,11 @@ async function handleApi(req, res, url) {
         id: pres.id,
         code: pres.code,
         title: pres.title,
-        slides: pres.slides.map((s) => ({ ...publicSlide(s), results: computeResults(s) })),
+        slides: pres.slides.map((s) => ({ ...publicSlide(s), results: computeResults(s, !!pres.collectNames) })),
         activeIndex: pres.activeIndex,
         votingLocked: pres.votingLocked,
         resultsHidden: pres.resultsHidden,
+        collectNames: !!pres.collectNames,
       });
     }
     return sendJSON(res, 200, snapshot(pres.id));
@@ -911,7 +929,8 @@ async function handleApi(req, res, url) {
       return sendJSON(res, 429, { error: 'slide_full' });
     }
 
-    const ok = applyAnswer(slide, pid, body);
+    const name = pres.collectNames ? ((pres.names && pres.names[pid]) || '') : '';
+    const ok = applyAnswer(slide, pid, body, name);
     if (!ok.ok) return sendJSON(res, 400, { error: ok.error });
     touch(pres);
     saveStore();
@@ -942,6 +961,26 @@ async function handleApi(req, res, url) {
     saveStore();
     broadcast(pres.id);
     return sendJSON(res, 200, { ok: true });
+  }
+
+  // POST /api/presentations/:id/identify — Anzeigenamen setzen (Publikum, nur wenn aktiviert)
+  if (sub === '/identify' && method === 'POST') {
+    const body = await readBody(req);
+    if (!pres.collectNames) return sendJSON(res, 409, { error: 'names_disabled' });
+    const pid = clampText(String(body.participantId || ''), 64);
+    if (!pid) return sendJSON(res, 400, { error: 'participant_missing' });
+    const name = clampText(String(body.name || ''), 40);
+    if (!name) return sendJSON(res, 400, { error: 'name_missing' });
+    if (!pres.names) pres.names = {};
+    // Obergrenze für verschiedene Namen (verhindert unbegrenztes Wachstum)
+    if (!(pid in pres.names) && Object.keys(pres.names).length >= MAX_PARTICIPANTS_PER_SLIDE) {
+      return sendJSON(res, 429, { error: 'full' });
+    }
+    pres.names[pid] = name;
+    touch(pres);
+    saveStore();
+    broadcast(pres.id);
+    return sendJSON(res, 200, { ok: true, name });
   }
 
   // Ab hier: nur Admin
@@ -1003,6 +1042,10 @@ async function handleApi(req, res, url) {
     }
     if (typeof body.votingLocked === 'boolean') pres.votingLocked = body.votingLocked;
     if (typeof body.resultsHidden === 'boolean') pres.resultsHidden = body.resultsHidden;
+    if (typeof body.collectNames === 'boolean') {
+      pres.collectNames = body.collectNames;
+      if (!body.collectNames) pres.names = {}; // Namen beim Abschalten löschen (Datensparsamkeit)
+    }
     touch(pres);
     saveStore();
     broadcast(pres.id);
@@ -1017,6 +1060,7 @@ async function handleApi(req, res, url) {
       if (slide) slide.answers = {};
     } else {
       for (const slide of pres.slides) slide.answers = {};
+      pres.names = {}; // vollständiger Reset löscht auch die erfassten Namen
     }
     saveStore();
     broadcast(pres.id);
@@ -1026,8 +1070,8 @@ async function handleApi(req, res, url) {
   return sendJSON(res, 404, { error: 'not_found' });
 }
 
-/** Antwort eines Teilnehmers auf eine Folie anwenden. */
-function applyAnswer(slide, pid, body) {
+/** Antwort eines Teilnehmers auf eine Folie anwenden. name = Anzeigename z. Zt. der Abgabe. */
+function applyAnswer(slide, pid, body, name = '') {
   switch (slide.type) {
     case 'choice': {
       let picks = Array.isArray(body.value) ? body.value : [body.value];
@@ -1053,7 +1097,7 @@ function applyAnswer(slide, pid, body) {
       if (!text) return { ok: false, error: 'empty' };
       const list = slide.answers[pid] || [];
       if (list.length >= MAX_OPEN_ANSWERS_PER_USER) return { ok: false, error: 'limit_reached' };
-      list.push({ text, ts: Date.now() });
+      list.push({ text, ts: Date.now(), name });
       slide.answers[pid] = list;
       return { ok: true };
     }
@@ -1068,7 +1112,7 @@ function applyAnswer(slide, pid, body) {
       if (!text) return { ok: false, error: 'empty' };
       const list = slide.answers[pid] || [];
       if (list.length >= MAX_OPEN_ANSWERS_PER_USER) return { ok: false, error: 'limit_reached' };
-      list.push({ id: crypto.randomUUID(), text, ts: Date.now(), upvotes: {} });
+      list.push({ id: crypto.randomUUID(), text, ts: Date.now(), upvotes: {}, name });
       slide.answers[pid] = list;
       return { ok: true };
     }

@@ -114,8 +114,9 @@ function snapshot(pres) {
     activeIndex: pres.activeIndex,
     votingLocked: pres.votingLocked,
     resultsHidden: pres.resultsHidden,
+    collectNames: !!pres.collectNames,
     slide: publicSlide(slide),
-    results: pres.resultsHidden ? null : computeResults(slide),
+    results: pres.resultsHidden ? null : computeResults(slide, !!pres.collectNames),
     audience: 0, // serverlos: keine dauerhaften Verbindungen zum Zählen
   };
 }
@@ -177,6 +178,7 @@ export default async function handler(req, res) {
         adminToken: crypto.randomBytes(24).toString('hex'),
         title: clampText(body.title, 120) || 'Unbenannte Präsentation',
         slides: [], activeIndex: 0, votingLocked: false, resultsHidden: false,
+        collectNames: false, names: {},
         createdAt: now, lastActivity: now,
       };
       await putPres(pres);
@@ -206,8 +208,9 @@ export default async function handler(req, res) {
       if (isAdmin(pres, req, url)) {
         return json(res, 200, {
           id: pres.id, code: pres.code, title: pres.title,
-          slides: pres.slides.map((s) => ({ ...publicSlide(s), results: computeResults(s) })),
+          slides: pres.slides.map((s) => ({ ...publicSlide(s), results: computeResults(s, !!pres.collectNames) })),
           activeIndex: pres.activeIndex, votingLocked: pres.votingLocked, resultsHidden: pres.resultsHidden,
+          collectNames: !!pres.collectNames,
         });
       }
       return json(res, 200, snapshot(pres));
@@ -223,7 +226,8 @@ export default async function handler(req, res) {
       if (!(pid in slide.answers) && Object.keys(slide.answers).length >= MAX_PARTICIPANTS_PER_SLIDE) {
         return json(res, 429, { error: 'slide_full' });
       }
-      const ok = applyAnswer(slide, pid, body);
+      const name = pres.collectNames ? ((pres.names && pres.names[pid]) || '') : '';
+      const ok = applyAnswer(slide, pid, body, name);
       if (!ok.ok) return json(res, 400, { error: ok.error });
       pres.lastActivity = Date.now();
       await putPres(pres);
@@ -250,6 +254,24 @@ export default async function handler(req, res) {
       pres.lastActivity = Date.now();
       await putPres(pres);
       return json(res, 200, { ok: true });
+    }
+
+    // POST /api/presentations/:id/identify — Anzeigenamen setzen (Publikum, nur wenn aktiviert)
+    if (sub === '/identify' && method === 'POST') {
+      const body = await readJson(req);
+      if (!pres.collectNames) return json(res, 409, { error: 'names_disabled' });
+      const pid = clampText(String(body.participantId || ''), 64);
+      if (!pid) return json(res, 400, { error: 'participant_missing' });
+      const name = clampText(String(body.name || ''), 40);
+      if (!name) return json(res, 400, { error: 'name_missing' });
+      if (!pres.names) pres.names = {};
+      if (!(pid in pres.names) && Object.keys(pres.names).length >= MAX_PARTICIPANTS_PER_SLIDE) {
+        return json(res, 429, { error: 'full' });
+      }
+      pres.names[pid] = name;
+      pres.lastActivity = Date.now();
+      await putPres(pres);
+      return json(res, 200, { ok: true, name });
     }
 
     // Ab hier: nur Admin
@@ -300,6 +322,10 @@ export default async function handler(req, res) {
       }
       if (typeof body.votingLocked === 'boolean') pres.votingLocked = body.votingLocked;
       if (typeof body.resultsHidden === 'boolean') pres.resultsHidden = body.resultsHidden;
+      if (typeof body.collectNames === 'boolean') {
+        pres.collectNames = body.collectNames;
+        if (!body.collectNames) pres.names = {}; // Namen beim Abschalten löschen
+      }
       pres.lastActivity = Date.now();
       await putPres(pres);
       return json(res, 200, { ok: true });
@@ -312,6 +338,7 @@ export default async function handler(req, res) {
         if (slide) slide.answers = {};
       } else {
         for (const slide of pres.slides) slide.answers = {};
+        pres.names = {}; // vollständiger Reset löscht auch die erfassten Namen
       }
       pres.lastActivity = Date.now();
       await putPres(pres);

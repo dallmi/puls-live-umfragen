@@ -210,7 +210,8 @@ function renderOpen(container, results, opts) {
   }
   const wall = el('<div class="answer-wall"></div>');
   results.texts.forEach((item) => {
-    wall.appendChild(el(`<div class="answer-card">${esc(item.text)}</div>`));
+    const nameTag = item.name ? `<span class="answer-name">${esc(item.name)}</span>` : '';
+    wall.appendChild(el(`<div class="answer-card">${esc(item.text)}${nameTag}</div>`));
   });
   container.appendChild(wall);
   container.appendChild(el(`<p class="results-meta">${t('results.open.count', { n: results.texts.length })}</p>`));
@@ -264,7 +265,7 @@ function renderQA(container, results, opts) {
           <span class="qa-vote-count">${q.votes}</span>
           <span class="qa-vote-arrow">▲</span>
         </button>
-        <div class="qa-text">${esc(q.text)}</div>
+        <div class="qa-text">${esc(q.text)}${q.name ? `<span class="qa-name">${esc(q.name)}</span>` : ''}</div>
       </div>`);
     if (opts.onUpvote) {
       row.querySelector('.qa-vote').addEventListener('click', () => opts.onUpvote(q.id));

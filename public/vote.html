@@ -58,6 +58,7 @@ function markVoted(slideId, value) {
   s[slideId] = value;
   sessionStorage.setItem('puls.voted.' + presId, JSON.stringify(s));
 }
+function storedName() { return localStorage.getItem('puls.name.' + presId) || ''; }
 
 if (!CODE || CODE.length !== 6) {
   location.replace('/');
@@ -84,7 +85,8 @@ async function init() {
 function onSnapshot(s) {
   snap = s;
   const slide = s.slide;
-  let key = slide ? `${slide.id}|${s.votingLocked}` : 'none';
+  const gate = s.collectNames && !storedName();
+  let key = gate ? 'namegate' : (slide ? `${slide.id}|${s.votingLocked}` : 'none');
 
   // Moderation hat die Antworten zurückgesetzt → lokalen Status verwerfen
   if (slide && s.results && s.results.voters === 0 && votedStore()[slide.id] !== undefined) {
@@ -116,6 +118,12 @@ function buildSlide() {
   const slide = snap.slide;
   resultsVisible = false;
   root.innerHTML = '';
+
+  // Namensabfrage, falls die Moderation „Namen erfassen" aktiviert hat und noch keiner gesetzt ist
+  if (snap.collectNames && !storedName()) {
+    buildNameGate();
+    return;
+  }
 
   if (!slide) {
     root.appendChild(el(`
@@ -165,6 +173,46 @@ function buildSlide() {
 
 function submittedNote(text) {
   return el(`<div class="vote-submitted">${esc(text)}</div>`);
+}
+
+// --- Namensabfrage-Gate ------------------------------------------------------
+function buildNameGate() {
+  const box = el(`
+    <div>
+      <div class="vote-topline"><span class="pt">${esc(snap.title)}</span></div>
+      <div class="vote-question">${t('vote.name.prompt')}</div>
+      <div class="field">
+        <input type="text" id="nameInput" maxlength="40" autocomplete="name"
+               placeholder="${t('vote.name.placeholder')}">
+      </div>
+      <button class="ds-btn ds-btn-primary ds-btn-lg" id="nameSubmit">${t('vote.name.submit')}</button>
+      <div class="error-note" id="nameErr"></div>
+    </div>`);
+  root.appendChild(box);
+  const input = box.querySelector('#nameInput');
+  const err = box.querySelector('#nameErr');
+  input.focus();
+  async function go() {
+    const name = input.value.trim();
+    if (!name) return;
+    try {
+      const r = await api('POST', `/api/presentations/${presId}/identify`, { participantId: PID, name });
+      localStorage.setItem('puls.name.' + presId, r.name || name);
+      renderedKey = null;
+      onSnapshot(snap); // erneut auswerten → jetzt Folie statt Gate
+    } catch (e) {
+      if (e.message === 'names_disabled') {
+        // Moderation hat „Namen erfassen" inzwischen abgeschaltet → Gate sofort auflösen
+        snap.collectNames = false;
+        renderedKey = null;
+        onSnapshot(snap);
+      } else {
+        err.textContent = t('vote.name.err');
+      }
+    }
+  }
+  box.querySelector('#nameSubmit').addEventListener('click', go);
+  input.addEventListener('keydown', (ev) => { if (ev.key === 'Enter') go(); });
 }
 
 async function submit(value, onOk, onErr) {
