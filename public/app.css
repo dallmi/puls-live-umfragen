@@ -291,6 +291,29 @@ main { flex: 1; width: 100%; }
   padding: 0.7rem 0.9rem; font-size: 0.85rem; color: var(--grey-6); margin-top: 1rem;
   border-radius: var(--radius);
 }
+.vote-submitted.quiz-correct { border-left-color: var(--success); background: var(--success-bg); font-weight: 600; }
+.vote-submitted.quiz-wrong { border-left-color: var(--danger); background: var(--danger-bg); }
+
+/* Quiz-Rangliste */
+.leaderboard { margin-top: 1.5rem; max-width: 720px; }
+.leaderboard-title { font-size: 0.85rem; font-weight: 600; color: var(--grey-5); margin-bottom: 0.6rem; }
+.leaderboard-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.leaderboard-row {
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.5rem 0.7rem; border: 1px solid var(--grey-1); border-radius: var(--radius); background: var(--white);
+}
+.leaderboard-row.leader { border-left: 3px solid var(--primary); }
+.lb-rank {
+  flex-shrink: 0; width: 1.7em; height: 1.7em; display: flex; align-items: center; justify-content: center;
+  background: var(--surface-alt); color: var(--grey-6); border-radius: var(--radius);
+  font-weight: 600; font-variant-numeric: tabular-nums; font-size: 0.8rem;
+}
+.leaderboard-row.leader .lb-rank { background: var(--primary); color: var(--white); }
+.lb-name { flex: 1; font-size: 0.95rem; color: var(--black); overflow-wrap: anywhere; }
+.lb-points { flex-shrink: 0; font-weight: 700; font-variant-numeric: tabular-nums; color: var(--grey-6); }
+.present-results .leaderboard-row { padding: 0.6rem 0.85rem; }
+.present-results .lb-name { font-size: 1.1rem; }
+.present-results .lb-points { font-size: 1.15rem; }
 .vote-locked {
   border-left: 3px solid var(--warning); background: var(--warning-bg);
   padding: 0.7rem 0.9rem; font-size: 0.85rem; color: var(--grey-6); margin-bottom: 1rem;
@@ -319,6 +342,8 @@ main { flex: 1; width: 100%; }
 .bar-track { background: var(--surface); border-radius: 0; height: 1.7rem; position: relative; }
 .bar-fill { height: 100%; background: var(--bordeaux-2); transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
 .bar-fill.leader { background: var(--primary); }
+.bar-fill.correct { background: var(--success); } /* Quiz: richtige Antwort grün */
+.bar-row.correct-row .bar-label { color: var(--success); font-weight: 600; }
 .bar-value { font-size: 0.95rem; font-weight: 600; color: var(--black); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .bar-pct { font-weight: 400; color: var(--grey-4); font-size: 0.78rem; margin-left: 0.4em; }
 

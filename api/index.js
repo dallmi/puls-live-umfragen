@@ -17,7 +17,7 @@ import crypto from 'node:crypto';
 import {
   SLIDE_TYPES, MAX_PARTICIPANTS_PER_SLIDE,
   clampText, sanitizeSlide, publicSlide, computeResults, applyAnswer, exportWorkbook,
-  pendingQuestions, moderateQuestion,
+  pendingQuestions, moderateQuestion, leaderboard, publicQuizResult,
 } from '../lib/domain.mjs';
 
 const TTL_SECONDS = 60 * 24 * 60 * 60;   // 60 Tage Inaktivität → automatischer Ablauf
@@ -148,6 +148,13 @@ function isAdmin(pres, req, url) {
   return !!(pres && token && safeEqual(token, pres.adminToken));
 }
 
+/** Ergebnis der aktiven Folie für den öffentlichen Snapshot (Quiz: ohne Antwortschlüssel). */
+function publicResultFor(slide, resultsHidden, showNames) {
+  if (!slide) return null;
+  const raw = resultsHidden ? null : computeResults(slide, showNames);
+  return (raw && slide.type === 'quiz') ? publicQuizResult(raw, true) : raw;
+}
+
 function snapshot(pres) {
   const slide = pres.slides[pres.activeIndex] || null;
   const selfPaced = !!pres.selfPaced;
@@ -162,14 +169,20 @@ function snapshot(pres) {
     selfPaced,
     brand: brandOf(pres),
     slide: publicSlide(slide),
-    results: pres.resultsHidden ? null : computeResults(slide, !!pres.collectNames),
+    results: publicResultFor(slide, pres.resultsHidden, !!pres.collectNames),
     audience: 0, // serverlos: keine dauerhaften Verbindungen zum Zählen
     reactions: (pres.reactions || []).filter((r) => r.ts > Date.now() - REACTION_WINDOW_MS),
   };
   // Selbststeuerung: Teilnehmende blättern selbst → sie brauchen alle Folien (+ Ergebnisse).
   if (selfPaced) {
     snap.slides = pres.slides.map(publicSlide);
-    snap.resultsList = pres.resultsHidden ? null : pres.slides.map((s) => computeResults(s, !!pres.collectNames));
+    snap.resultsList = pres.resultsHidden ? null : pres.slides.map((s) =>
+      s.type === 'quiz' ? publicQuizResult(computeResults(s, !!pres.collectNames), false) // Self-paced: keine Quiz-Verteilung
+        : computeResults(s, !!pres.collectNames));
+  }
+  // Rangliste erscheint zusammen mit den (aufgelösten) Ergebnissen.
+  if (!pres.resultsHidden && pres.slides.some((s) => s.type === 'quiz')) {
+    snap.leaderboard = leaderboard(pres, 10);
   }
   return snap;
 }
@@ -266,10 +279,12 @@ export default async function handler(req, res) {
             ...publicSlide(s),
             results: computeResults(s, !!pres.collectNames),
             ...(s.type === 'qa' && s.moderated ? { pending: pendingQuestions(s) } : {}),
+            ...(s.type === 'quiz' ? { correct: s.correct } : {}), // Admin darf den Antwortschlüssel sehen
           })),
           activeIndex: pres.activeIndex, votingLocked: pres.votingLocked, resultsHidden: pres.resultsHidden,
           collectNames: !!pres.collectNames,
           selfPaced: !!pres.selfPaced,
+          leaderboard: pres.slides.some((s) => s.type === 'quiz') ? leaderboard(pres, 1000) : undefined,
           brand: brandOf(pres),
         });
       }
@@ -292,10 +307,10 @@ export default async function handler(req, res) {
         }
         const name = p.collectNames ? ((p.names && p.names[pid]) || '') : '';
         const ok = applyAnswer(slide, pid, body, name);
-        if (!ok.ok) return { s: 400, j: { error: ok.error } };
+        if (!ok.ok) return { s: ok.error === 'already_answered' ? 409 : 400, j: { error: ok.error } };
         p.lastActivity = Date.now();
         await putPres(p);
-        return { s: 200, j: { ok: true } };
+        return { s: 200, j: { ok: true, ...(ok.quiz ? { quiz: ok.quiz } : {}) } };
       });
       return json(res, out.s, out.j);
     }
@@ -450,6 +465,7 @@ export default async function handler(req, res) {
         const slide = sanitizeSlide(input);
         const prev = existing.get(slide.id);
         slide.answers = prev ? prev.answers : {};
+        if (prev && prev.startedAt && slide.type === 'quiz') slide.startedAt = prev.startedAt;
         return slide;
       });
       pres.activeIndex = Math.min(pres.activeIndex, Math.max(0, pres.slides.length - 1));
@@ -462,6 +478,11 @@ export default async function handler(req, res) {
       const body = await readJson(req);
       if (Number.isInteger(body.activeIndex)) {
         pres.activeIndex = Math.min(Math.max(0, body.activeIndex), Math.max(0, pres.slides.length - 1));
+        const act = pres.slides[pres.activeIndex];
+        if (act && act.type === 'quiz') {
+          act.startedAt = Date.now();   // Quiz-Timer starten
+          pres.resultsHidden = true;    // Quiz startet verdeckt
+        }
       }
       if (typeof body.votingLocked === 'boolean') pres.votingLocked = body.votingLocked;
       if (typeof body.resultsHidden === 'boolean') pres.resultsHidden = body.resultsHidden;

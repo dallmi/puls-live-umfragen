@@ -210,6 +210,7 @@ function buildSlide() {
       case 'scale':     buildScale(form, slide); break;
       case 'points':    buildPoints(form, slide); break;
       case 'ranking':   buildRanking(form, slide); break;
+      case 'quiz':      buildQuiz(form, slide); break;
       case 'qa':        buildQa(form, slide); break;
     }
   }
@@ -287,12 +288,12 @@ function buildNameGate() {
 
 async function submit(value, onOk, onErr) {
   try {
-    await api('POST', `/api/presentations/${presId}/answers`, {
+    const r = await api('POST', `/api/presentations/${presId}/answers`, {
       slideId: curSlide().id,
       participantId: PID,
       value,
     });
-    onOk && onOk();
+    onOk && onOk(r); // r kann Quiz-Feedback enthalten ({ quiz: { correct, points } })
   } catch (e) {
     onErr && onErr(e);
   }
@@ -341,6 +342,61 @@ function buildChoice(form, slide) {
   }
   function prevNoteText() {
     return t('vote.choice.recorded');
+  }
+}
+
+// --- Quiz --------------------------------------------------------------------
+function quizFeedback(info) {
+  const correct = info && info.correct;
+  const txt = correct ? t('vote.quiz.correct', { n: info.points }) : t('vote.quiz.wrong');
+  return el(`<div class="vote-submitted ${correct ? 'quiz-correct' : 'quiz-wrong'}">${esc(txt)}</div>`);
+}
+
+function buildQuiz(form, slide) {
+  const prev = votedStore()[slide.id]; // { choice, correct, points } nach dem Antworten
+  const answered = prev && typeof prev === 'object' && !Array.isArray(prev);
+  let chosen = answered ? prev.choice : null;
+
+  const box = el('<div class="vote-options"></div>');
+  (slide.options || []).forEach((opt, i) => {
+    const btn = el(`
+      <button class="vote-option${chosen === i ? ' selected' : ''}" ${answered ? 'disabled' : ''}>
+        <span class="mark"></span><span>${esc(opt)}</span>
+      </button>`);
+    if (!answered) {
+      btn.addEventListener('click', () => {
+        chosen = i;
+        box.querySelectorAll('.vote-option').forEach((b, j) => b.classList.toggle('selected', j === i));
+        submitBtn.disabled = false;
+      });
+    }
+    box.appendChild(btn);
+  });
+  form.appendChild(box);
+
+  const submitBtn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg" style="margin-top:1rem;" ${chosen != null ? '' : 'disabled'}>${t('vote.quiz.submit')}</button>`);
+  const note = el('<div></div>');
+  submitBtn.addEventListener('click', () => {
+    if (chosen == null) return;
+    submit(chosen, (resp) => {
+      const info = (resp && resp.quiz) || { correct: false, points: 0 };
+      markVoted(slide.id, { choice: chosen, correct: info.correct, points: info.points });
+      submitBtn.hidden = true;
+      box.querySelectorAll('.vote-option').forEach((b) => { b.disabled = true; });
+      note.innerHTML = '';
+      note.appendChild(quizFeedback(info));
+      showResults(slide.id); // Verteilung erst sichtbar, wenn der Moderator auflöst
+    }, (e) => {
+      if (e.message === 'already_answered') { submitBtn.hidden = true; note.innerHTML = ''; note.appendChild(submittedNote(t('vote.quiz.alreadyAnswered'))); }
+    });
+  });
+  form.appendChild(submitBtn);
+  form.appendChild(note);
+
+  if (answered) {
+    submitBtn.hidden = true;
+    note.appendChild(quizFeedback(prev));
+    showResults(slide.id);
   }
 }
 
@@ -647,7 +703,7 @@ function updateResults() {
       }
     },
     upvoted,
-  } : {});
+  } : { leaderboard: snap.leaderboard });
 }
 
 function refreshLanguage() {

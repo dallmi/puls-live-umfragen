@@ -171,6 +171,15 @@
               <p class="ds-card-subtitle" data-i18n="presenter.field.moderatedHint">Neue Fragen erscheinen erst öffentlich, nachdem Sie sie im Präsentationsmodus freigegeben haben.</p>
             </div>
           </div>
+
+          <!-- Quiz -->
+          <div id="editQuiz" hidden>
+            <div class="field">
+              <label for="optQuizCorrect" data-i18n="presenter.field.quizCorrect">Richtige Antwort</label>
+              <select id="optQuizCorrect"></select>
+            </div>
+            <p class="ds-card-subtitle" data-i18n="presenter.field.quizHint">Punkte für richtige (und schnelle) Antworten. Die Rangliste nutzt die erfassten Namen — am besten „Namen erfassen" aktivieren.</p>
+          </div>
         </div>
 
         <div class="ds-empty" id="noSlides" hidden>
@@ -321,7 +330,7 @@ function renderResultsPanel() {
     $('editorResults').innerHTML = `<p class="results-empty">${t('presenter.results.empty')}</p>`;
     return;
   }
-  renderResults($('editorResults'), slide, results, {});
+  renderResults($('editorResults'), slide, results, slide.type === 'quiz' ? { leaderboard: pres && pres.leaderboard, correctIndex: slide.correct } : {});
 }
 
 let saveTimer = null;
@@ -392,12 +401,13 @@ function renderSlideEditor() {
   $('typeHint').textContent = typeMeta(s.type).hint || '';
   $('slideQuestion').value = s.question || '';
 
-  const hasOptions = s.type === 'choice' || s.type === 'ranking' || s.type === 'points';
+  const hasOptions = s.type === 'choice' || s.type === 'ranking' || s.type === 'points' || s.type === 'quiz';
   $('editOptions').hidden = !hasOptions;
   $('editWordcloud').hidden = s.type !== 'wordcloud';
   $('editScale').hidden = s.type !== 'scale';
   $('editInfo').hidden = s.type !== 'info';
   $('editQa').hidden = s.type !== 'qa';
+  $('editQuiz').hidden = s.type !== 'quiz';
 
   if (hasOptions) {
     renderOptionRows();
@@ -405,6 +415,7 @@ function renderSlideEditor() {
     $('pointsHint').hidden = s.type !== 'points';
     $('rankingHint').hidden = s.type !== 'ranking';
     if (s.type === 'choice') $('optMultiple').checked = !!s.multiple;
+    if (s.type === 'quiz') refreshQuizCorrect();
   }
   if (s.type === 'wordcloud') $('optMaxWords').value = String(s.maxWords || 1);
   if (s.type === 'scale') {
@@ -415,6 +426,18 @@ function renderSlideEditor() {
   if (s.type === 'info') $('optInfoText').value = s.text || '';
   if (s.type === 'qa') $('optModerated').checked = !!s.moderated;
   renderResultsPanel();
+}
+
+// Quiz: „Richtige Antwort"-Auswahl aus den aktuellen Optionen aufbauen
+function refreshQuizCorrect() {
+  const s = currentSlide();
+  if (!s || s.type !== 'quiz') return;
+  const sel = $('optQuizCorrect');
+  const opts = s.options || [];
+  if (!Number.isInteger(s.correct) || s.correct < 0 || s.correct >= opts.length) s.correct = 0;
+  sel.innerHTML = opts.map((o, i) =>
+    `<option value="${i}"${i === s.correct ? ' selected' : ''}>${i + 1}. ${esc(o || t('presenter.field.optionPlaceholder', { n: i + 1 }))}</option>`
+  ).join('');
 }
 
 function renderOptionRows() {
@@ -429,23 +452,31 @@ function renderOptionRows() {
       </div>`);
     row.querySelector('input').addEventListener('input', (e) => {
       s.options[i] = e.target.value;
+      if (s.type === 'quiz') refreshQuizCorrect();
       scheduleSave();
     });
     row.querySelector('button').addEventListener('click', () => {
       s.options.splice(i, 1);
+      // Quiz: „richtige Antwort" der verschobenen/gelöschten Option nachführen
+      if (s.type === 'quiz' && Number.isInteger(s.correct)) {
+        if (s.correct === i) s.correct = 0;
+        else if (s.correct > i) s.correct -= 1;
+      }
       renderOptionRows();
       scheduleSave();
     });
     box.appendChild(row);
   });
   $('btnAddOption').disabled = (s.options || []).length >= 8;
+  if (s.type === 'quiz') refreshQuizCorrect();
 }
 
 // Editor-Eingaben → lokalen Zustand aktualisieren
 $('slideType').addEventListener('change', (e) => {
   const s = currentSlide();
   s.type = e.target.value;
-  if ((s.type === 'choice' || s.type === 'ranking' || s.type === 'points') && !Array.isArray(s.options)) s.options = ['', ''];
+  if ((s.type === 'choice' || s.type === 'ranking' || s.type === 'points' || s.type === 'quiz') && !Array.isArray(s.options)) s.options = ['', ''];
+  if (s.type === 'quiz' && !Number.isInteger(s.correct)) s.correct = 0;
   if (s.type === 'wordcloud' && !s.maxWords) s.maxWords = 1;
   if (s.type === 'scale') {
     s.max = s.max || 5; s.min = 1;
@@ -459,6 +490,7 @@ $('slideQuestion').addEventListener('input', (e) => { currentSlide().question = 
 $('optMultiple').addEventListener('change', (e) => { currentSlide().multiple = e.target.checked; scheduleSave(); });
 $('optMaxWords').addEventListener('change', (e) => { currentSlide().maxWords = parseInt(e.target.value, 10); scheduleSave(); });
 $('optModerated').addEventListener('change', (e) => { currentSlide().moderated = e.target.checked; scheduleSave(); });
+$('optQuizCorrect').addEventListener('change', (e) => { currentSlide().correct = parseInt(e.target.value, 10) || 0; scheduleSave(); });
 $('optScaleMax').addEventListener('change', (e) => { currentSlide().max = parseInt(e.target.value, 10); scheduleSave(); });
 $('optMinLabel').addEventListener('input', (e) => { currentSlide().minLabel = e.target.value; scheduleSave(); });
 $('optMaxLabel').addEventListener('input', (e) => { currentSlide().maxLabel = e.target.value; scheduleSave(); });
@@ -664,7 +696,13 @@ function onSnapshot(snap) {
     return;
   }
   q.textContent = snap.slide.question || typeMeta(snap.slide.type).label || '';
-  renderResults($('presentResults'), snap.slide, snap.results, {});
+  // Quiz: richtige Antwort kennt nur der (authentifizierte) Moderator aus seinen Admin-Daten.
+  let correctIndex = -1;
+  if (snap.slide.type === 'quiz' && pres) {
+    const full = pres.slides.find((s) => s.id === snap.slide.id);
+    if (full && Number.isInteger(full.correct)) correctIndex = full.correct;
+  }
+  renderResults($('presentResults'), snap.slide, snap.results, { leaderboard: snap.leaderboard, correctIndex });
   refreshModeration(snap);
 }
 

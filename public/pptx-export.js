@@ -15,7 +15,7 @@
 
   const C = {
     red: 'E60000', bordeaux: '8A000A', black: '000000', dark: '404040',
-    med: '7A7870', light: 'CCCABC', pastel: 'ECEBE4', white: 'FFFFFF',
+    med: '7A7870', light: 'CCCABC', pastel: 'ECEBE4', white: 'FFFFFF', success: '6F7A1A',
   };
   /* Hausschrift laut Designsystem („the only permitted font“). Office kennt
      keine Fallback-Stacks — auf Rechnern ohne Frutiger substituiert
@@ -29,7 +29,7 @@
 
   const TYPE_LABEL = {
     choice: 'Multiple Choice', wordcloud: 'Wortwolke', open: 'Offene Frage',
-    scale: 'Skala', ranking: 'Ranking', points: '100-Punkte-Verteilung', qa: 'Q&A', info: 'Infofolie',
+    scale: 'Skala', ranking: 'Ranking', points: '100-Punkte-Verteilung', quiz: 'Quiz', qa: 'Q&A', info: 'Infofolie',
   };
 
   function stampNow() {
@@ -118,12 +118,29 @@
         case 'scale':     addScale(s, sl, res); break;
         case 'points':    addPoints(s, sl, res); break;
         case 'ranking':   addRanking(s, sl, res); break;
+        case 'quiz':      addQuiz(s, sl, res); break;
         case 'qa':        addQa(s, res); break;
         case 'info':
           if (sl.text) s.addText(sl.text, T({ x: ML, y: CONTENT_TOP, w: CW - 2, h: 4.5, fontSize: 14, color: C.dark, valign: 'top' }));
           break;
       }
     });
+
+    // Rangliste als Abschlussfolie, falls Quiz-Folien vorhanden sind
+    const board = Array.isArray(pres.leaderboard) ? pres.leaderboard : [];
+    if (pres.slides.some((sl) => sl.type === 'quiz') && board.length) {
+      const s = newSlide('Rangliste', 'Punkte über alle Quiz-Folien');
+      const shown = board.slice(0, 12);
+      const step = Math.min(0.5, (CONTENT_BOTTOM - CONTENT_TOP - 0.4) / shown.length);
+      shown.forEach((r, i) => {
+        const y = CONTENT_TOP + i * step;
+        const leader = i === 0;
+        s.addText(String(i + 1), T({ x: ML, y: y, w: 0.6, h: step, fontSize: 14, bold: true, color: leader ? C.red : C.black, valign: 'middle' }));
+        s.addText(clip(r.name, 60), T({ x: ML + 0.7, y: y, w: CW - 3.2, h: step, fontSize: 13, color: C.black, valign: 'middle' }));
+        s.addText(String(r.points), T({ x: W - MR - 1.8, y: y, w: 1.6, h: step, fontSize: 13, bold: true, color: C.dark, align: 'right', valign: 'middle' }));
+      });
+      s.addText(`${board.length} Teilnehmende`, T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 5, h: 0.3, fontSize: 10, color: C.med }));
+    }
 
     function empty(s, text) {
       s.addText(text, T({ x: ML, y: 3.2, w: CW, h: 0.5, fontSize: 13, color: C.med }));
@@ -210,6 +227,37 @@
         s.addText(avg, T({ x: W - MR - 1.9, y: y, w: 1.7, h: step, fontSize: 11, color: C.med, align: 'right', valign: 'middle' }));
       });
       s.addText(`${res.voters} Teilnehmende`, T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 5, h: 0.3, fontSize: 10, color: C.med }));
+    }
+
+    // Quiz: Balken je Option, richtige Antwort grün + ✓
+    function addQuiz(s, sl, res) {
+      const opts = sl.options || [];
+      if (!res || !opts.length) return empty(s, 'Keine Antwortoptionen.');
+      const counts = res.counts || [];
+      const total = counts.reduce((a, b) => a + b, 0);
+      const max = Math.max.apply(null, counts.concat([1]));
+      const rowH = Math.min(0.95, (CONTENT_BOTTOM - CONTENT_TOP - 0.4) / opts.length);
+      const barH = Math.min(0.5, rowH * 0.55);
+      const labelW = 3.1, valueW = 1.9;
+      const barX = ML + labelW + 0.2;
+      const barW = CW - labelW - valueW - 0.6;
+      s.addShape('line', { x: barX - 0.08, y: CONTENT_TOP, w: 0.001, h: rowH * opts.length, line: { color: C.black, width: 1 } });
+      opts.forEach((opt, i) => {
+        const y = CONTENT_TOP + i * rowH + (rowH - barH) / 2;
+        const n = counts[i] || 0;
+        const isCorrect = i === res.correct;
+        const pct = total ? Math.round((n / total) * 100) : 0;
+        s.addText((isCorrect ? '✓ ' : '') + clip(opt, 68), T({ x: ML, y: y - 0.08, w: labelW, h: barH + 0.16, fontSize: 13, bold: isCorrect, color: isCorrect ? C.success : C.black, valign: 'middle' }));
+        s.addShape('rect', { x: barX, y: y, w: barW, h: barH, fill: { color: C.pastel } });
+        if (n > 0) {
+          s.addShape('rect', { x: barX, y: y, w: Math.max(barW * (n / max), 0.03), h: barH, fill: { color: isCorrect ? C.success : C.bordeaux } });
+        }
+        s.addText([
+          { text: String(n), options: { bold: true, color: C.black, fontSize: 14 } },
+          { text: `  ${pct} %`, options: { color: C.med, fontSize: 11 } },
+        ], T({ x: barX + barW + 0.12, y: y - 0.08, w: valueW, h: barH + 0.16, valign: 'middle' }));
+      });
+      s.addText(`${res.voters} ${res.voters === 1 ? 'Antwort' : 'Antworten'}`, T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 4, h: 0.3, fontSize: 10, color: C.med }));
     }
 
     // Wortwolke: Größe = Häufigkeit, Farben aus der Markenfarb-Sequenz

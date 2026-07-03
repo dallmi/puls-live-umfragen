@@ -219,6 +219,7 @@ function renderResults(container, slide, results, opts = {}) {
     case 'scale':     return renderScale(container, slide, results, opts);
     case 'points':    return renderPoints(container, slide, results, opts);
     case 'ranking':   return renderRanking(container, slide, results, opts);
+    case 'quiz':      return renderQuiz(container, slide, results, opts);
     case 'qa':        return renderQA(container, results, opts);
     case 'info':      return renderInfo(container, slide);
   }
@@ -293,6 +294,53 @@ function renderRanking(container, slide, results, opts) {
   });
   container.appendChild(list);
   container.appendChild(el(`<p class="results-meta">${t('results.choice.voters', { n: results.voters })}</p>`));
+}
+
+function renderQuiz(container, slide, results, opts) {
+  // Verteilung nur, wenn vorhanden (öffentlich evtl. ausgeblendet). Der Antwortschlüssel
+  // kommt aus opts.correctIndex (Präsentationsmodus/Editor) — nie aus dem öffentlichen Snapshot.
+  const counts = Array.isArray(results.counts) ? results.counts : null;
+  const total = counts ? counts.reduce((a, b) => a + b, 0) : 0;
+  const max = counts ? Math.max(...counts, 1) : 1;
+  const correct = Number.isInteger(opts.correctIndex) && opts.correctIndex >= 0 ? opts.correctIndex
+    : (Number.isInteger(results.correct) ? results.correct : -1);
+  const chart = el(`<div class="barchart" role="img" aria-label="${t('results.quiz.aria')}"></div>`);
+  (slide.options || []).forEach((option, i) => {
+    const count = counts ? (counts[i] || 0) : 0;
+    const pct = total ? Math.round((count / total) * 100) : 0;
+    const isCorrect = i === correct;
+    const row = el(`
+      <div class="bar-row${isCorrect ? ' correct-row' : ''}">
+        <div class="bar-label">${isCorrect ? '✓ ' : ''}${esc(option)}</div>
+        ${counts ? `<div class="bar-track"><div class="bar-fill${isCorrect ? ' correct' : ''}" style="width:0%"></div></div>
+        <div class="bar-value">${count}<span class="bar-pct">${pct}%</span></div>` : ''}
+      </div>`);
+    chart.appendChild(row);
+    if (counts) requestAnimationFrame(() => {
+      row.querySelector('.bar-fill').style.width = (max ? (count / max) * 100 : 0) + '%';
+    });
+  });
+  container.appendChild(chart);
+  container.appendChild(el(`<p class="results-meta">${t('results.choice.voters', { n: results.voters })}</p>`));
+  if (opts.leaderboard && opts.leaderboard.length) renderLeaderboard(container, opts.leaderboard);
+}
+
+function renderLeaderboard(container, board) {
+  const box = el('<div class="leaderboard"></div>');
+  box.appendChild(el(`<div class="leaderboard-title">${t('results.leaderboard.title')}</div>`));
+  const list = el('<ol class="leaderboard-list"></ol>');
+  board.forEach((r, i) => {
+    const row = el(`
+      <li class="leaderboard-row${i === 0 ? ' leader' : ''}">
+        <span class="lb-rank">${i + 1}</span>
+        <span class="lb-name"></span>
+        <span class="lb-points">${r.points}</span>
+      </li>`);
+    row.querySelector('.lb-name').textContent = r.name; // sicher gegen HTML
+    list.appendChild(row);
+  });
+  box.appendChild(list);
+  container.appendChild(box);
 }
 
 function renderWordcloud(container, results, opts) {

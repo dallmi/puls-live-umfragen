@@ -127,7 +127,7 @@ function touch(pres) {
 // Domänenlogik
 // ---------------------------------------------------------------------------
 
-const SLIDE_TYPES = ['choice', 'wordcloud', 'open', 'scale', 'ranking', 'points', 'qa', 'info'];
+const SLIDE_TYPES = ['choice', 'wordcloud', 'open', 'scale', 'ranking', 'points', 'quiz', 'qa', 'info'];
 const REACTIONS = ['👍', '❤️', '👏', '😂', '😮', '🎉']; // erlaubte Emoji-Reaktionen
 const REACTION_WINDOW_MS = 6000; // Reaktionen sind ephemer: nur die letzten Sekunden werden gezeigt
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -212,7 +212,7 @@ function sanitizeSlide(input) {
   if (type === 'qa') {
     slide.moderated = !!input.moderated; // Fragen erst nach Freigabe öffentlich
   }
-  if (type === 'ranking' || type === 'points') {
+  if (type === 'ranking' || type === 'points' || type === 'quiz') {
     slide.options = (Array.isArray(input.options) ? input.options : [])
       .map((o) => clampText(String(o), 120))
       .filter(Boolean)
@@ -221,14 +221,69 @@ function sanitizeSlide(input) {
   if (type === 'points') {
     slide.total = 100; // feste Gesamtpunktzahl je Teilnehmer
   }
+  if (type === 'quiz') {
+    const n = slide.options.length;
+    const c = parseInt(input.correct, 10);
+    slide.correct = (Number.isInteger(c) && c >= 0 && c < n) ? c : 0;
+    if (Number.isFinite(input.startedAt)) slide.startedAt = input.startedAt;
+  }
   return slide;
+}
+
+/** Quiz-Punkte für eine richtige Antwort. Mit Timer 1000→500 nach Zeit, ohne Timer flach 1000. */
+function quizPoints(startedAt) {
+  if (!startedAt) return 1000;
+  const WINDOW_MS = 20000;
+  const frac = Math.max(0, 1 - (Date.now() - startedAt) / WINDOW_MS);
+  return Math.round(500 + 500 * frac);
+}
+
+/** Rangliste über alle Quiz-Folien: Punkte je Teilnehmer, mit Namen. */
+function leaderboard(pres, limit = 20) {
+  const totals = {};
+  for (const s of pres.slides || []) {
+    if (s.type !== 'quiz') continue;
+    for (const [pid, ans] of Object.entries(s.answers || {})) {
+      if (!ans || typeof ans !== 'object') continue;
+      const t = totals[pid] || (totals[pid] = { points: 0, correct: 0 });
+      t.points += Number(ans.points) || 0;
+      if (ans.correct) t.correct++;
+    }
+  }
+  const names = pres.names || {};
+  const rows = Object.entries(totals).map(([pid, t]) => ({
+    pid, points: t.points, correct: t.correct,
+    name: names[pid] || ('Gast ' + String(pid).slice(0, 4)),
+  }));
+  rows.sort((a, b) => b.points - a.points || b.correct - a.correct);
+  return rows.slice(0, limit);
 }
 
 /** Öffentliche Sicht auf eine Folie (ohne Antworten-Rohdaten). */
 function publicSlide(slide) {
   if (!slide) return null;
   const { answers, ...rest } = slide;
+  // Quiz: Antwortschlüssel + Timer nie an Clients (Betrugsschutz).
+  if (rest.type === 'quiz') { delete rest.correct; delete rest.startedAt; }
   return rest;
+}
+
+/**
+ * Öffentliche Quiz-Ergebnisse: der Antwortschlüssel (correct) wird NIE an Clients
+ * ausgeliefert — sonst könnte man vor dem Antworten spicken. Die richtige Antwort
+ * hebt nur der Moderator im Präsentationsmodus aus seinen (authentifizierten) Daten
+ * hervor. withCounts=false blendet zusätzlich die Verteilung aus (z. B. Self-paced).
+ */
+function publicQuizResult(res, withCounts) {
+  if (!res || res.kind !== 'quiz') return res;
+  return { kind: 'quiz', voters: res.voters, correct: -1, counts: withCounts ? res.counts : null };
+}
+
+/** Ergebnis der aktiven Folie für den öffentlichen Snapshot (Quiz: ohne Antwortschlüssel). */
+function publicResultFor(slide, resultsHidden, showNames) {
+  if (!slide) return null;
+  const raw = resultsHidden ? null : computeResults(slide, showNames);
+  return (raw && slide.type === 'quiz') ? publicQuizResult(raw, true) : raw;
 }
 
 /** Ergebnisse einer Folie berechnen. (showNames: Namen anzeigen ja/nein) */
@@ -333,6 +388,17 @@ function computeResults(slide, showNames = false) {
       items.sort((a, b) => b.score - a.score || a.avgRank - b.avgRank);
       return { kind: 'ranking', items, voters };
     }
+    case 'quiz': {
+      const counts = new Array((slide.options || []).length).fill(0);
+      let voters = 0;
+      for (const [, ans] of entries) {
+        if (ans && Number.isInteger(ans.choice) && ans.choice >= 0 && ans.choice < counts.length) {
+          counts[ans.choice]++;
+          voters++;
+        }
+      }
+      return { kind: 'quiz', counts, voters, correct: Number.isInteger(slide.correct) ? slide.correct : -1 };
+    }
     case 'qa': {
       const questions = [];
       for (const [, list] of entries) {
@@ -405,14 +471,20 @@ function snapshot(presId) {
     selfPaced,
     brand: brandOf(pres),
     slide: publicSlide(slide),
-    results: pres.resultsHidden ? null : computeResults(slide, !!pres.collectNames),
+    results: publicResultFor(slide, pres.resultsHidden, !!pres.collectNames),
     audience: audienceCount(presId),
     reactions: (pres.reactions || []).filter((r) => r.ts > Date.now() - REACTION_WINDOW_MS),
   };
   // Selbststeuerung: Teilnehmende blättern selbst → sie brauchen alle Folien (+ Ergebnisse).
   if (selfPaced) {
     snap.slides = pres.slides.map(publicSlide);
-    snap.resultsList = pres.resultsHidden ? null : pres.slides.map((s) => computeResults(s, !!pres.collectNames));
+    snap.resultsList = pres.resultsHidden ? null : pres.slides.map((s) =>
+      s.type === 'quiz' ? publicQuizResult(computeResults(s, !!pres.collectNames), false) // Self-paced: keine Quiz-Verteilung
+        : computeResults(s, !!pres.collectNames));
+  }
+  // Rangliste erscheint zusammen mit den (aufgelösten) Ergebnissen.
+  if (!pres.resultsHidden && pres.slides.some((s) => s.type === 'quiz')) {
+    snap.leaderboard = leaderboard(pres, 10);
   }
   return snap;
 }
@@ -830,7 +902,7 @@ function exportWorkbook(pres) {
   const overviewData = [];
   pres.slides.forEach((slide, i) => {
     const results = computeResults(slide, !!pres.collectNames);
-    const label = { choice: 'Multiple Choice', wordcloud: 'Wortwolke', open: 'Offene Frage', scale: 'Skala', ranking: 'Ranking', points: '100-Punkte-Verteilung', qa: 'Q&A', info: 'Infofolie' }[slide.type] || slide.type;
+    const label = { choice: 'Multiple Choice', wordcloud: 'Wortwolke', open: 'Offene Frage', scale: 'Skala', ranking: 'Ranking', points: '100-Punkte-Verteilung', quiz: 'Quiz', qa: 'Q&A', info: 'Infofolie' }[slide.type] || slide.type;
     overviewData.push([i + 1, label, slide.question || '', results && results.voters !== undefined ? results.voters : '']);
 
     let sheet = null;
@@ -899,6 +971,18 @@ function exportWorkbook(pres) {
           totals: [['Teilnehmende', results.voters, '', '']],
         };
         break;
+      case 'quiz': {
+        const total = results.counts.reduce((a, b) => a + b, 0);
+        sheet = {
+          headers: ['Option', 'Stimmen', 'Anteil', 'Richtig'],
+          data: (slide.options || []).map((opt, j) => {
+            const n = results.counts[j] || 0;
+            return [opt, n, total ? `${Math.round((n / total) * 1000) / 10} %` : '–', j === results.correct ? '✓' : ''];
+          }),
+          totals: [['Teilnehmende', results.voters, '', '']],
+        };
+        break;
+      }
       case 'qa':
         sheet = pres.collectNames
           ? {
@@ -919,6 +1003,16 @@ function exportWorkbook(pres) {
       sheets.push(sheet);
     }
   });
+  if ((pres.slides || []).some((s) => s.type === 'quiz')) {
+    const board = leaderboard(pres, 1000);
+    sheets.push({
+      name: 'Rangliste',
+      pre: [['Rangliste'], ['Punkte über alle Quiz-Folien']],
+      headers: ['Rang', 'Name', 'Punkte', 'Richtig'],
+      data: board.map((r, j) => [j + 1, r.name, r.points, r.correct]),
+      totals: [['Teilnehmende', board.length, '', '']],
+    });
+  }
   sheets.unshift({
     name: 'Übersicht',
     pre: [[pres.title], [`Code ${pres.code} — exportiert ${formatTs(Date.now())}`]],
@@ -1005,12 +1099,14 @@ async function handleApi(req, res, url) {
           ...publicSlide(s),
           results: computeResults(s, !!pres.collectNames),
           ...(s.type === 'qa' && s.moderated ? { pending: pendingQuestions(s) } : {}),
+          ...(s.type === 'quiz' ? { correct: s.correct } : {}), // Admin darf den Antwortschlüssel sehen
         })),
         activeIndex: pres.activeIndex,
         votingLocked: pres.votingLocked,
         resultsHidden: pres.resultsHidden,
         collectNames: !!pres.collectNames,
         selfPaced: !!pres.selfPaced,
+        leaderboard: pres.slides.some((s) => s.type === 'quiz') ? leaderboard(pres, 1000) : undefined,
         brand: brandOf(pres),
       });
     }
@@ -1032,11 +1128,11 @@ async function handleApi(req, res, url) {
 
     const name = pres.collectNames ? ((pres.names && pres.names[pid]) || '') : '';
     const ok = applyAnswer(slide, pid, body, name);
-    if (!ok.ok) return sendJSON(res, 400, { error: ok.error });
+    if (!ok.ok) return sendJSON(res, ok.error === 'already_answered' ? 409 : 400, { error: ok.error });
     touch(pres);
     saveStore();
     broadcast(pres.id);
-    return sendJSON(res, 200, { ok: true });
+    return sendJSON(res, 200, { ok: true, ...(ok.quiz ? { quiz: ok.quiz } : {}) });
   }
 
   // POST /api/presentations/:id/upvote — Q&A-Frage hochwählen
@@ -1192,9 +1288,10 @@ async function handleApi(req, res, url) {
     const existing = new Map(pres.slides.map((s) => [s.id, s]));
     pres.slides = body.slides.slice(0, 50).map((input) => {
       const slide = sanitizeSlide(input);
-      // Vorhandene Antworten behalten, wenn die Folie schon existierte
+      // Vorhandene Antworten (und Quiz-Timer) behalten, wenn die Folie schon existierte
       const prev = existing.get(slide.id);
       slide.answers = prev ? prev.answers : {};
+      if (prev && prev.startedAt && slide.type === 'quiz') slide.startedAt = prev.startedAt;
       return slide;
     });
     pres.activeIndex = Math.min(pres.activeIndex, Math.max(0, pres.slides.length - 1));
@@ -1209,6 +1306,11 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     if (Number.isInteger(body.activeIndex)) {
       pres.activeIndex = Math.min(Math.max(0, body.activeIndex), Math.max(0, pres.slides.length - 1));
+      const act = pres.slides[pres.activeIndex];
+      if (act && act.type === 'quiz') {
+        act.startedAt = Date.now();   // Quiz-Timer beim Aktivieren starten
+        pres.resultsHidden = true;    // Quiz startet verdeckt; Moderator löst mit „Ergebnisse einblenden" auf
+      }
     }
     if (typeof body.votingLocked === 'boolean') pres.votingLocked = body.votingLocked;
     if (typeof body.resultsHidden === 'boolean') pres.resultsHidden = body.resultsHidden;
@@ -1305,6 +1407,16 @@ function applyAnswer(slide, pid, body, name = '') {
       }
       slide.answers[pid] = arr; // erneutes Abstimmen ersetzt die vorherige Reihenfolge
       return { ok: true };
+    }
+    case 'quiz': {
+      if (pid in slide.answers) return { ok: false, error: 'already_answered' };
+      const nOpts = (slide.options || []).length;
+      const choice = Number(body.value);
+      if (!Number.isInteger(choice) || choice < 0 || choice >= nOpts) return { ok: false, error: 'no_option' };
+      const correct = choice === slide.correct;
+      const points = correct ? quizPoints(slide.startedAt) : 0;
+      slide.answers[pid] = { choice, ts: Date.now(), correct, points, name };
+      return { ok: true, quiz: { correct, points } };
     }
     case 'qa': {
       const text = clampText(String(body.value || ''), MAX_TEXT_LEN);

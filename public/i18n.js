@@ -81,6 +81,8 @@ const DICT = {
   'presenter.field.moderatedHint': { de: 'Neue Fragen erscheinen erst öffentlich, nachdem Sie sie im Präsentationsmodus freigegeben haben.', en: 'New questions become public only after you approve them in presentation mode.' },
   'presenter.field.pointsHint': { de: 'Jede Person verteilt 100 Punkte auf die Optionen.', en: 'Each person distributes 100 points across the options.' },
   'presenter.field.rankingHint': { de: 'Jede Person bringt die Optionen in ihre Wunschreihenfolge.', en: 'Each person puts the options in their preferred order.' },
+  'presenter.field.quizCorrect': { de: 'Richtige Antwort', en: 'Correct answer' },
+  'presenter.field.quizHint': { de: 'Punkte für richtige (und schnelle) Antworten. Die Rangliste nutzt die erfassten Namen — am besten „Namen erfassen" aktivieren.', en: 'Points for correct (and fast) answers. The leaderboard uses collected names — best to enable "Collect names".' },
   'presenter.field.optionPlaceholder': { de: 'Option {{n}}', en: 'Option {{n}}' },
   'presenter.field.removeOption': { de: 'Option entfernen', en: 'Remove option' },
   'presenter.empty.title': { de: 'Noch keine Folien', en: 'No slides yet' },
@@ -160,6 +162,10 @@ const DICT = {
   'vote.qa.pending': { de: 'Frage eingereicht — wird von der Moderation geprüft.', en: 'Question submitted — awaiting host approval.' },
   'vote.pace.prev': { de: '← Zurück', en: '← Back' },
   'vote.pace.next': { de: 'Weiter →', en: 'Next →' },
+  'vote.quiz.submit': { de: 'Antwort abschicken', en: 'Submit answer' },
+  'vote.quiz.correct': { de: 'Richtig! +{{n}} Punkte 🎉', en: 'Correct! +{{n}} points 🎉' },
+  'vote.quiz.wrong': { de: 'Leider falsch. Die Auflösung folgt gleich.', en: 'Not quite. The answer will be revealed shortly.' },
+  'vote.quiz.alreadyAnswered': { de: 'Antwort bereits abgegeben.', en: 'Answer already submitted.' },
   'vote.qa.boardTitle': { de: 'Fragen aus dem Publikum', en: 'Audience questions' },
   'vote.qa.boardHint': { de: 'Gib den Fragen, die dich interessieren, ein 👍 — die beliebtesten stehen oben.', en: 'Give a 👍 to the questions you like — the most popular rise to the top.' },
   'vote.qa.limitReached': { de: 'Limit erreicht — maximal 5 Fragen pro Person.', en: 'Limit reached — maximum 5 questions per person.' },
@@ -171,6 +177,8 @@ const DICT = {
     de: { one: '{{n}} Stimme', other: '{{n}} Stimmen' },
     en: { one: '{{n}} vote', other: '{{n}} votes' },
   },
+  'results.quiz.aria': { de: 'Quiz-Ergebnis', en: 'Quiz result' },
+  'results.leaderboard.title': { de: '🏆 Rangliste', en: '🏆 Leaderboard' },
   'results.points.aria': { de: 'Punkteverteilung', en: 'Points distribution' },
   'results.points.meta': {
     de: { one: '{{n}} Teilnehmende · {{total}} Punkte gesamt', other: '{{n}} Teilnehmende · {{total}} Punkte gesamt' },
@@ -216,13 +224,15 @@ const DICT = {
   'type.ranking.hint': { de: 'Teilnehmende bringen die Optionen in ihre Reihenfolge.', en: 'Participants put the options in their preferred order.' },
   'type.points.label': { de: '100-Punkte-Verteilung', en: '100 Points' },
   'type.points.hint': { de: 'Jede Person verteilt 100 Punkte auf die Optionen.', en: 'Each person distributes 100 points across the options.' },
+  'type.quiz.label': { de: 'Quiz', en: 'Quiz' },
+  'type.quiz.hint': { de: 'Frage mit richtiger Antwort — Punkte und Rangliste.', en: 'Question with a correct answer — points and a leaderboard.' },
   'type.qa.label': { de: 'Q&A', en: 'Q&A' },
   'type.qa.hint': { de: 'Publikum stellt Fragen und stimmt darüber ab.', en: 'Audience asks questions and votes on them.' },
   'type.info.label': { de: 'Infofolie', en: 'Info Slide' },
   'type.info.hint': { de: 'Statische Folie ohne Interaktion.', en: 'Static slide with no interaction.' },
 };
 
-const SLIDE_TYPES = ['choice', 'wordcloud', 'open', 'scale', 'ranking', 'points', 'qa', 'info'];
+const SLIDE_TYPES = ['choice', 'wordcloud', 'open', 'scale', 'ranking', 'points', 'quiz', 'qa', 'info'];
 
 // ---------------------------------------------------------------------------
 // Sprachwahl
