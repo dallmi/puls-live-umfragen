@@ -66,6 +66,22 @@ main { flex: 1; width: 100%; }
 .landing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 2rem; }
 @media (max-width: 760px) { .landing-grid { grid-template-columns: 1fr; } }
 
+/* Mockup D — Beitreten dominant, Erstellen als Zweitweg */
+.join-primary { max-width: 460px; margin: 0 auto 1.25rem; }
+.join-card .code-input { font-size: 1.9rem; }
+.join-help { margin-top: 0.75rem; }
+.or-divider {
+  display: flex; align-items: center; gap: 1rem;
+  max-width: 460px; margin: 0 auto 1.25rem;
+  color: var(--grey-4); font-size: 0.8rem;
+}
+.or-divider::before, .or-divider::after {
+  content: ""; flex: 1; height: 1px; background: var(--grey-1);
+}
+.create-card { max-width: 460px; margin: 0 auto 2rem; }
+.create-row { display: flex; gap: 0.6rem; align-items: flex-end; flex-wrap: wrap; }
+.create-row .field { flex: 1; min-width: 12rem; margin-bottom: 0; }
+
 .code-input {
   width: 100%; font-family: var(--font-sans); font-size: 2rem; font-weight: 300;
   letter-spacing: 0.35em; text-align: center; padding: 0.6rem 0.25rem;

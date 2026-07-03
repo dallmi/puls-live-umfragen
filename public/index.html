@@ -26,8 +26,8 @@
          Das Publikum stimmt per Code auf dem eigenen Gerät ab, die Ergebnisse erscheinen in Echtzeit.</p>
     </section>
 
-    <div class="landing-grid">
-      <div class="ds-card accent-primary">
+    <div class="join-primary">
+      <div class="ds-card accent-primary join-card">
         <div class="ds-card-title" data-i18n="landing.join.title">An einer Präsentation teilnehmen</div>
         <form id="joinForm">
           <div class="field">
@@ -37,22 +37,24 @@
           </div>
           <button class="ds-btn ds-btn-primary ds-btn-lg" type="submit" data-i18n="landing.join.submit">Teilnehmen</button>
           <div class="error-note" id="joinError"></div>
+          <div class="help join-help" data-i18n="landing.join.helpNoCode">Kein Code? Fragen Sie die Person, die präsentiert.</div>
         </form>
       </div>
+    </div>
 
-      <div class="ds-card accent-neutral">
-        <div class="ds-card-title" data-i18n="landing.create.title">Neue Präsentation erstellen</div>
-        <form id="createForm">
-          <div class="field">
-            <label for="presTitle" data-i18n="field.title.label">Titel</label>
-            <input type="text" id="presTitle" maxlength="120" placeholder="z. B. Team-Meeting Juli"
-                   data-i18n-placeholder="landing.create.titlePlaceholder" autocomplete="off">
-            <div class="help" data-i18n="landing.create.help">Sie erhalten einen Moderationslink und einen sechsstelligen Code für das Publikum.</div>
-          </div>
-          <button class="ds-btn ds-btn-lg" type="submit" data-i18n="landing.create.submit">Erstellen</button>
-          <div class="error-note" id="createError"></div>
-        </form>
-      </div>
+    <div class="or-divider"><span data-i18n="landing.create.divider">oder</span></div>
+
+    <div class="ds-card accent-neutral create-card">
+      <div class="ds-card-title" data-i18n="landing.create.secondaryTitle">Eigene Präsentation erstellen</div>
+      <form id="createForm" class="create-row">
+        <div class="field">
+          <label for="presTitle" data-i18n="field.title.label">Titel</label>
+          <input type="text" id="presTitle" maxlength="120" placeholder="z. B. Team-Meeting Juli"
+                 data-i18n-placeholder="landing.create.titlePlaceholder" autocomplete="off">
+        </div>
+        <button class="ds-btn ds-btn-lg" type="submit" data-i18n="landing.create.submit">Erstellen</button>
+        <div class="error-note" id="createError"></div>
+      </form>
     </div>
 
     <div class="ds-card my-presentations" id="mineCard" hidden>
@@ -79,27 +81,39 @@ document.title = t('landing.pageTitle');
 initLangToggle(document.getElementById('langToggle'), refreshLanguage);
 
 // --- Beitreten -------------------------------------------------------------
-document.getElementById('joinForm').addEventListener('submit', async (e) => {
-  e.preventDefault();
+let joining = false;        // verhindert Doppel-Absenden
+let lastAttempt = '';       // zuletzt geprüfter 6-stelliger Code (kein Re-Trigger)
+
+async function attemptJoin(code) {
   const errEl = document.getElementById('joinError');
+  if (code.length !== 6) { errEl.textContent = t('landing.join.errInvalid'); return; }
+  if (joining) return;
+  joining = true;
   errEl.textContent = '';
-  const code = document.getElementById('joinCode').value.replace(/\D/g, '');
-  if (code.length !== 6) {
-    errEl.textContent = t('landing.join.errInvalid');
-    return;
-  }
   try {
     await api('GET', `/api/join/${code}`);
     location.href = `/vote.html?code=${code}`;
   } catch {
     errEl.textContent = t('landing.join.errNotFound');
+    joining = false;
   }
+}
+
+document.getElementById('joinForm').addEventListener('submit', (e) => {
+  e.preventDefault();
+  attemptJoin(document.getElementById('joinCode').value.replace(/\D/g, ''));
 });
 
-// Eingabe formatieren: "123 456"
+// Eingabe formatieren ("123 456") und bei sechs Ziffern automatisch weiter (L2)
 document.getElementById('joinCode').addEventListener('input', (e) => {
   const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
   e.target.value = digits.length > 3 ? digits.slice(0, 3) + ' ' + digits.slice(3) : digits;
+  if (digits.length === 6 && digits !== lastAttempt) {
+    lastAttempt = digits;
+    attemptJoin(digits);
+  } else if (digits.length < 6) {
+    lastAttempt = '';           // erneut freigeben, sobald wieder unter 6
+  }
 });
 
 // --- Erstellen ---------------------------------------------------------------
