@@ -119,7 +119,7 @@ a:hover { color: #07476F; text-decoration: underline; }
   border-left: 3px solid var(--primary);
   color: var(--black);
 }
-.ds-header .ds-title b { font-weight: 600; }
+.ds-header .ds-title b { font-weight: 600; margin-right: 0.3em; }
 .ds-header-controls { display: flex; gap: 1rem; align-items: center; flex-wrap: wrap; }
 
 /* ============================================================================
