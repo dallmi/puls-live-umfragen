@@ -353,23 +353,26 @@ main { flex: 1; width: 100%; }
 /* --- Q&A ------------------------------------------------------------------------ */
 .qa-list { display: flex; flex-direction: column; gap: 0.5rem; max-width: 720px; }
 .qa-item {
-  display: flex; gap: 0.8rem; align-items: flex-start;
+  display: flex; gap: 0.8rem; align-items: center; justify-content: space-between;
   background: var(--white); border: 1px solid var(--grey-1); border-radius: var(--radius);
   padding: 0.65rem 0.8rem;
 }
-.qa-vote {
-  display: flex; flex-direction: column; align-items: center; gap: 0.1rem;
-  font-family: var(--font-sans); background: var(--white); border: 1px solid var(--grey-2);
-  border-radius: var(--radius); padding: 0.3rem 0.55rem; cursor: pointer; flex-shrink: 0;
-  color: var(--grey-5);
-}
-.qa-vote:hover:not(:disabled) { border-color: var(--grey-4); }
-.qa-vote.voted { border-color: var(--primary); color: var(--primary); }
-.qa-vote:disabled { cursor: default; }
-.qa-vote-count { font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
-.qa-vote-arrow { font-size: 0.6rem; }
-.qa-text { font-size: 0.95rem; color: var(--grey-6); padding-top: 0.3rem; overflow-wrap: anywhere; }
+.qa-text { flex: 1; font-size: 0.95rem; color: var(--grey-6); overflow-wrap: anywhere; }
 .present-results .qa-text { font-size: 1.15rem; }
+/* Daumen-hoch-Like: Zahl für alle sichtbar, Akzentfarbe im gelikten Zustand */
+.qa-like {
+  display: inline-flex; align-items: center; gap: 0.4rem; flex-shrink: 0;
+  font-family: var(--font-sans); background: var(--white); border: 1px solid var(--grey-2);
+  border-radius: var(--radius); padding: 0.35rem 0.7rem; cursor: pointer; color: var(--grey-5);
+}
+.qa-like:hover:not(:disabled) { border-color: var(--primary); color: var(--primary); }
+.qa-like.liked { border-color: var(--primary); color: var(--primary); background: var(--surface); }
+.qa-like:disabled { cursor: default; }
+.qa-like-icon { width: 17px; height: 17px; fill: currentColor; display: block; }
+.qa-like-count { font-size: 0.95rem; font-weight: 600; font-variant-numeric: tabular-nums; }
+.present-results .qa-like { padding: 0.45rem 0.85rem; }
+.present-results .qa-like-icon { width: 22px; height: 22px; }
+.present-results .qa-like-count { font-size: 1.15rem; }
 
 /* Namen bei Q&A / offenen Antworten (nur wenn „Namen erfassen“ aktiv) */
 .answer-name, .qa-name {

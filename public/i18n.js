@@ -156,8 +156,8 @@ const DICT = {
   'vote.qa.submit': { de: 'Frage einreichen', en: 'Submit question' },
   'vote.qa.sent': { de: 'Frage eingereicht.', en: 'Question submitted.' },
   'vote.qa.pending': { de: 'Frage eingereicht — wird von der Moderation geprüft.', en: 'Question submitted — awaiting host approval.' },
-  'vote.qa.boardTitle': { de: 'Fragen — nach oben voten', en: 'Questions — vote to the top' },
-  'vote.qa.boardHint': { de: 'Tippe ▲ bei den Fragen, die dir am wichtigsten sind. Die mit den meisten Stimmen stehen oben.', en: 'Tap ▲ on the questions you care about most. The most-voted rise to the top.' },
+  'vote.qa.boardTitle': { de: 'Fragen aus dem Publikum', en: 'Audience questions' },
+  'vote.qa.boardHint': { de: 'Gib den Fragen, die dich interessieren, ein 👍 — die beliebtesten stehen oben.', en: 'Give a 👍 to the questions you like — the most popular rise to the top.' },
   'vote.qa.limitReached': { de: 'Limit erreicht — maximal 5 Fragen pro Person.', en: 'Limit reached — maximum 5 questions per person.' },
 
   // --- Ergebnis-Rendering (common.js) ------------------------------------------
@@ -193,7 +193,7 @@ const DICT = {
     en: { one: '{{n}} rating', other: '{{n}} ratings' },
   },
   'results.qa.empty': { de: 'Noch keine Fragen aus dem Publikum.', en: 'No questions from the audience yet.' },
-  'results.qa.upvoteAria': { de: 'Frage hochwählen', en: 'Upvote question' },
+  'results.qa.upvoteAria': { de: 'Frage liken', en: 'Like question' },
   'results.qa.count': {
     de: { one: '{{n}} Frage', other: '{{n}} Fragen' },
     en: { one: '{{n}} question', other: '{{n}} questions' },

@@ -367,6 +367,9 @@ function renderScale(container, slide, results, opts) {
   container.appendChild(el(`<p class="results-meta">${t('results.scale.count', { n: results.voters })}</p>`));
 }
 
+// Daumen-hoch-Symbol (füllt sich per currentColor mit der Akzentfarbe, wenn geliked)
+const THUMB_SVG = '<svg class="qa-like-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M1 21h4V9H1v12zm22-11c0-1.1-.9-2-2-2h-6.31l.95-4.57.03-.32c0-.41-.17-.79-.44-1.06L14.17 1 7.59 7.59C7.22 7.95 7 8.45 7 9v10c0 1.1.9 2 2 2h9c.83 0 1.54-.5 1.84-1.22l3.02-7.05c.09-.23.14-.47.14-.73v-1z"/></svg>';
+
 function renderQA(container, results, opts) {
   if (!results.questions.length) {
     container.appendChild(el(`<p class="results-empty">${t('results.qa.empty')}</p>`));
@@ -374,17 +377,18 @@ function renderQA(container, results, opts) {
   }
   const list = el('<div class="qa-list"></div>');
   results.questions.forEach((q) => {
-    const upvoted = opts.upvoted && opts.upvoted.has(q.id);
+    const liked = opts.upvoted && opts.upvoted.has(q.id);
     const row = el(`
       <div class="qa-item">
-        <button class="qa-vote${upvoted ? ' voted' : ''}" ${opts.onUpvote ? '' : 'disabled'} aria-label="${t('results.qa.upvoteAria')}">
-          <span class="qa-vote-count">${q.votes}</span>
-          <span class="qa-vote-arrow">▲</span>
-        </button>
         <div class="qa-text">${esc(q.text)}${q.name ? `<span class="qa-name">${esc(q.name)}</span>` : ''}</div>
+        <button class="qa-like${liked ? ' liked' : ''}" ${opts.onUpvote ? '' : 'disabled'}
+                aria-label="${t('results.qa.upvoteAria')}" aria-pressed="${liked ? 'true' : 'false'}">
+          ${THUMB_SVG}
+          <span class="qa-like-count">${q.votes}</span>
+        </button>
       </div>`);
     if (opts.onUpvote) {
-      row.querySelector('.qa-vote').addEventListener('click', () => opts.onUpvote(q.id));
+      row.querySelector('.qa-like').addEventListener('click', () => opts.onUpvote(q.id));
     }
     list.appendChild(row);
   });
