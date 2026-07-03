@@ -134,6 +134,46 @@ document.getElementById('createForm').addEventListener('submit', async (e) => {
   }
 });
 
+function moderationUrl(id, token) {
+  return `${location.origin}/presenter.html?id=${encodeURIComponent(id)}&token=${encodeURIComponent(token)}`;
+}
+
+// Ein Sicher-Block, zweifach genutzt (Nach-Erstellen-Ansicht + Dialog).
+function buildSecureBlock({ title, url }) {
+  const block = el(`
+    <div class="secure-block">
+      <label class="secure-link-label">${esc(t('landing.secure.linkLabel'))}</label>
+      <div class="secure-link-row">
+        <input class="secure-link" type="text" readonly value="${esc(url)}">
+        <button type="button" class="ds-btn secure-copy">${esc(t('landing.secure.copy'))}</button>
+      </div>
+      <div class="secure-qr"></div>
+      <div class="help secure-qr-caption">${esc(t('landing.secure.qrCaption'))}</div>
+      <a class="ds-btn secure-mail" href="#">${esc(t('landing.secure.mail'))}</a>
+    </div>`);
+
+  renderQR(block.querySelector('.secure-qr'), url, 150);
+
+  block.querySelector('.secure-mail').href =
+    'mailto:?subject=' + encodeURIComponent(t('landing.secure.mailSubject', { title })) +
+    '&body=' + encodeURIComponent(t('landing.secure.mailBody', { title, url }));
+
+  const copyBtn = block.querySelector('.secure-copy');
+  const input = block.querySelector('.secure-link');
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(url);
+    } catch {
+      input.focus(); input.select();
+      try { document.execCommand('copy'); } catch { /* Link bleibt markiert sichtbar */ }
+    }
+    copyBtn.textContent = t('landing.secure.copied');
+    setTimeout(() => { copyBtn.textContent = t('landing.secure.copy'); }, 1500);
+  });
+
+  return block;
+}
+
 // --- Meine Präsentationen -------------------------------------------------------
 function renderMine() {
   const mine = JSON.parse(localStorage.getItem('puls.mine') || '[]');

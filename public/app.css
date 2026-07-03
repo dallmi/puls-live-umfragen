@@ -479,3 +479,22 @@ main { flex: 1; width: 100%; }
   padding: 1rem 1.5rem; font-size: 0.7rem; color: var(--grey-4);
   border-top: 1px solid var(--grey-1); margin-top: 2rem;
 }
+
+/* Mockup D — Sicher-Block (Link/Kopieren/QR/Mail) */
+.secure-block { margin-top: 0.5rem; }
+.secure-link-label {
+  display: block; font-size: 0.7rem; color: var(--grey-4);
+  text-transform: none; margin-bottom: 0.25rem;
+}
+.secure-link-row { display: flex; gap: 0.5rem; align-items: stretch; }
+.secure-link {
+  flex: 1; min-width: 0; font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 0.8rem; padding: 0.55rem 0.6rem;
+  border: 1px solid var(--grey-2); border-radius: var(--radius);
+  background: var(--row-alt); color: var(--grey-6);
+}
+.secure-copy { white-space: nowrap; }
+.secure-qr { margin: 1rem 0 0.35rem; }
+.secure-qr svg { width: 150px; height: 150px; display: block; }
+.secure-qr-caption { margin-bottom: 1rem; }
+.secure-mail { display: inline-block; }
