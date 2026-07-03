@@ -208,6 +208,9 @@ function sanitizeSlide(input) {
   if (type === 'info') {
     slide.text = clampText(input.text, 2000);
   }
+  if (type === 'qa') {
+    slide.moderated = !!input.moderated; // Fragen erst nach Freigabe öffentlich
+  }
   return slide;
 }
 
@@ -288,7 +291,9 @@ function computeResults(slide, showNames = false) {
       for (const [, list] of entries) {
         if (!Array.isArray(list)) continue;
         for (const q of list) {
-          if (q && q.text) questions.push({ id: q.id, text: q.text, votes: Object.keys(q.upvotes || {}).length, ts: q.ts || 0, name: shownName(q) });
+          if (!q || !q.text) continue;
+          if (slide.moderated && q.approved === false) continue; // moderiert: nur Freigegebene öffentlich
+          questions.push({ id: q.id, text: q.text, votes: Object.keys(q.upvotes || {}).length, ts: q.ts || 0, name: shownName(q) });
         }
       }
       questions.sort((a, b) => b.votes - a.votes || a.ts - b.ts);
@@ -922,7 +927,11 @@ async function handleApi(req, res, url) {
         id: pres.id,
         code: pres.code,
         title: pres.title,
-        slides: pres.slides.map((s) => ({ ...publicSlide(s), results: computeResults(s, !!pres.collectNames) })),
+        slides: pres.slides.map((s) => ({
+          ...publicSlide(s),
+          results: computeResults(s, !!pres.collectNames),
+          ...(s.type === 'qa' && s.moderated ? { pending: pendingQuestions(s) } : {}),
+        })),
         activeIndex: pres.activeIndex,
         votingLocked: pres.votingLocked,
         resultsHidden: pres.resultsHidden,
@@ -1063,6 +1072,33 @@ async function handleApi(req, res, url) {
     return sendJSON(res, 200, { ok: true, brand: brandOf(pres) });
   }
 
+  // GET /api/presentations/:id/moderation — ausstehende Q&A-Fragen der aktiven Folie (Admin)
+  if (sub === '/moderation' && method === 'GET') {
+    const slide = pres.slides[pres.activeIndex] || null;
+    const moderated = !!(slide && slide.type === 'qa' && slide.moderated);
+    return sendJSON(res, 200, {
+      slideId: slide ? slide.id : null,
+      moderated,
+      pending: moderated ? pendingQuestions(slide) : [],
+    });
+  }
+
+  // POST /api/presentations/:id/moderate — Frage freigeben/entfernen (Admin)
+  if (sub === '/moderate' && method === 'POST') {
+    const body = await readBody(req);
+    const slide = pres.slides.find((s) => s.id === body.slideId) || pres.slides[pres.activeIndex];
+    if (!slide || slide.type !== 'qa') return sendJSON(res, 404, { error: 'slide_unknown' });
+    const action = body.action === 'approve' || body.action === 'reject' ? body.action : null;
+    if (!action) return sendJSON(res, 400, { error: 'bad_action' });
+    if (!moderateQuestion(slide, String(body.itemId || ''), action)) {
+      return sendJSON(res, 404, { error: 'question_unknown' });
+    }
+    touch(pres);
+    saveStore();
+    broadcast(pres.id);
+    return sendJSON(res, 200, { ok: true, pending: pendingQuestions(slide) });
+  }
+
   // DELETE /api/presentations/:id
   if (sub === '' && method === 'DELETE') {
     delete store.presentations[pres.id];
@@ -1167,13 +1203,45 @@ function applyAnswer(slide, pid, body, name = '') {
       if (!text) return { ok: false, error: 'empty' };
       const list = slide.answers[pid] || [];
       if (list.length >= MAX_OPEN_ANSWERS_PER_USER) return { ok: false, error: 'limit_reached' };
-      list.push({ id: crypto.randomUUID(), text, ts: Date.now(), upvotes: {}, name });
+      list.push({ id: crypto.randomUUID(), text, ts: Date.now(), upvotes: {}, name, approved: !slide.moderated });
       slide.answers[pid] = list;
       return { ok: true };
     }
     default:
       return { ok: false, error: 'not_votable' };
   }
+}
+
+/** Ausstehende (noch nicht freigegebene) Q&A-Fragen einer moderierten Folie, älteste zuerst. */
+function pendingQuestions(slide) {
+  if (!slide || slide.type !== 'qa') return [];
+  const out = [];
+  for (const list of Object.values(slide.answers || {})) {
+    if (!Array.isArray(list)) continue;
+    for (const q of list) {
+      if (q && q.text && q.approved === false) out.push({ id: q.id, text: q.text, ts: q.ts || 0, name: q.name || '' });
+    }
+  }
+  out.sort((a, b) => a.ts - b.ts);
+  return out;
+}
+
+/** Q&A-Frage freigeben ('approve') oder entfernen ('reject'). Gibt true bei Erfolg. */
+function moderateQuestion(slide, itemId, action) {
+  if (!slide || slide.type !== 'qa') return false;
+  for (const [pid, list] of Object.entries(slide.answers || {})) {
+    if (!Array.isArray(list)) continue;
+    const idx = list.findIndex((q) => q && q.id === itemId);
+    if (idx === -1) continue;
+    if (action === 'approve') { list[idx].approved = true; return true; }
+    if (action === 'reject') {
+      list.splice(idx, 1);
+      if (!list.length) delete slide.answers[pid];
+      return true;
+    }
+    return false;
+  }
+  return false;
 }
 
 // ---------------------------------------------------------------------------

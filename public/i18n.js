@@ -75,6 +75,8 @@ const DICT = {
   'presenter.field.maxLabel': { de: 'Beschriftung rechts (Maximum)', en: 'Right label (maximum)' },
   'presenter.field.maxLabelPlaceholder': { de: 'trifft voll zu', en: 'strongly agree' },
   'presenter.field.infoText': { de: 'Text', en: 'Text' },
+  'presenter.field.moderated': { de: 'Fragen vor Anzeige freigeben (Moderation)', en: 'Approve questions before showing (moderation)' },
+  'presenter.field.moderatedHint': { de: 'Neue Fragen erscheinen erst öffentlich, nachdem Sie sie im Präsentationsmodus freigegeben haben.', en: 'New questions become public only after you approve them in presentation mode.' },
   'presenter.field.optionPlaceholder': { de: 'Option {{n}}', en: 'Option {{n}}' },
   'presenter.field.removeOption': { de: 'Option entfernen', en: 'Remove option' },
   'presenter.empty.title': { de: 'Noch keine Folien', en: 'No slides yet' },
@@ -94,6 +96,10 @@ const DICT = {
     de: { one: '{{n}} Person verbunden', other: '{{n}} Personen verbunden' },
     en: { one: '{{n}} person connected', other: '{{n}} people connected' },
   },
+  'presenter.moderation.title': { de: 'Freigabe', en: 'Approval' },
+  'presenter.moderation.empty': { de: 'Keine offenen Fragen.', en: 'No pending questions.' },
+  'presenter.moderation.approve': { de: 'Freigeben', en: 'Approve' },
+  'presenter.moderation.reject': { de: 'Verwerfen', en: 'Reject' },
   'presenter.access.joinAt': { de: 'Beitreten auf', en: 'Join at' },
   'presenter.invalidLink.title': { de: 'Ungültiger Link', en: 'Invalid link' },
   'presenter.invalidLink.desc': { de: 'Moderationslinks enthalten eine ID und ein Token.', en: 'Presenter links contain an ID and a token.' },
@@ -139,6 +145,7 @@ const DICT = {
   'vote.qa.placeholder': { de: 'Ihre Frage an die Moderation', en: 'Your question for the host' },
   'vote.qa.submit': { de: 'Frage einreichen', en: 'Submit question' },
   'vote.qa.sent': { de: 'Frage eingereicht.', en: 'Question submitted.' },
+  'vote.qa.pending': { de: 'Frage eingereicht — wird von der Moderation geprüft.', en: 'Question submitted — awaiting host approval.' },
   'vote.qa.limitReached': { de: 'Limit erreicht — maximal 5 Fragen pro Person.', en: 'Limit reached — maximum 5 questions per person.' },
 
   // --- Ergebnis-Rendering (common.js) ------------------------------------------

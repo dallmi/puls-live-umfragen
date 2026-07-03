@@ -428,7 +428,7 @@ function buildQa(form, slide) {
     submit(text, () => {
       ta.value = '';
       note.innerHTML = '';
-      note.appendChild(submittedNote(t('vote.qa.sent')));
+      note.appendChild(submittedNote(slide.moderated ? t('vote.qa.pending') : t('vote.qa.sent')));
     }, (e) => {
       if (e.message === 'limit_reached') {
         note.innerHTML = '';

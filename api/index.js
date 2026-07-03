@@ -17,6 +17,7 @@ import crypto from 'node:crypto';
 import {
   SLIDE_TYPES, MAX_PARTICIPANTS_PER_SLIDE,
   clampText, sanitizeSlide, publicSlide, computeResults, applyAnswer, exportWorkbook,
+  pendingQuestions, moderateQuestion,
 } from '../lib/domain.mjs';
 
 const TTL_SECONDS = 60 * 24 * 60 * 60;   // 60 Tage Inaktivität → automatischer Ablauf
@@ -222,7 +223,11 @@ export default async function handler(req, res) {
       if (isAdmin(pres, req, url)) {
         return json(res, 200, {
           id: pres.id, code: pres.code, title: pres.title,
-          slides: pres.slides.map((s) => ({ ...publicSlide(s), results: computeResults(s, !!pres.collectNames) })),
+          slides: pres.slides.map((s) => ({
+            ...publicSlide(s),
+            results: computeResults(s, !!pres.collectNames),
+            ...(s.type === 'qa' && s.moderated ? { pending: pendingQuestions(s) } : {}),
+          })),
           activeIndex: pres.activeIndex, votingLocked: pres.votingLocked, resultsHidden: pres.resultsHidden,
           collectNames: !!pres.collectNames,
           brand: brandOf(pres),
@@ -347,6 +352,32 @@ export default async function handler(req, res) {
       pres.lastActivity = Date.now();
       await putPres(pres);
       return json(res, 200, { ok: true, brand: brandOf(pres) });
+    }
+
+    // GET /api/presentations/:id/moderation — ausstehende Q&A-Fragen der aktiven Folie (Admin)
+    if (sub === '/moderation' && method === 'GET') {
+      const slide = pres.slides[pres.activeIndex] || null;
+      const moderated = !!(slide && slide.type === 'qa' && slide.moderated);
+      return json(res, 200, {
+        slideId: slide ? slide.id : null,
+        moderated,
+        pending: moderated ? pendingQuestions(slide) : [],
+      });
+    }
+
+    // POST /api/presentations/:id/moderate — Frage freigeben/entfernen (Admin)
+    if (sub === '/moderate' && method === 'POST') {
+      const body = await readJson(req);
+      const slide = pres.slides.find((s) => s.id === body.slideId) || pres.slides[pres.activeIndex];
+      if (!slide || slide.type !== 'qa') return json(res, 404, { error: 'slide_unknown' });
+      const action = body.action === 'approve' || body.action === 'reject' ? body.action : null;
+      if (!action) return json(res, 400, { error: 'bad_action' });
+      if (!moderateQuestion(slide, String(body.itemId || ''), action)) {
+        return json(res, 404, { error: 'question_unknown' });
+      }
+      pres.lastActivity = Date.now();
+      await putPres(pres);
+      return json(res, 200, { ok: true, pending: pendingQuestions(slide) });
     }
 
     if (sub === '' && method === 'DELETE') {

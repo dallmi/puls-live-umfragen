@@ -152,6 +152,16 @@
               <textarea id="optInfoText" rows="6" maxlength="2000"></textarea>
             </div>
           </div>
+
+          <!-- Q&A -->
+          <div id="editQa" hidden>
+            <div class="field">
+              <label style="display:flex; align-items:center; gap:0.5rem; font-weight:400;">
+                <input type="checkbox" id="optModerated" style="width:auto;"> <span data-i18n="presenter.field.moderated">Fragen vor Anzeige freigeben (Moderation)</span>
+              </label>
+              <p class="ds-card-subtitle" data-i18n="presenter.field.moderatedHint">Neue Fragen erscheinen erst öffentlich, nachdem Sie sie im Präsentationsmodus freigegeben haben.</p>
+            </div>
+          </div>
         </div>
 
         <div class="ds-empty" id="noSlides" hidden>
@@ -174,6 +184,13 @@
 <!-- Präsentationsmodus -->
 <div class="present-mode" id="presentMode" hidden>
   <div class="present-reactions" id="presentReactions"></div>
+  <div class="moderation-panel" id="moderationPanel" hidden>
+    <div class="moderation-head">
+      <span data-i18n="presenter.moderation.title">Freigabe</span>
+      <span class="moderation-count" id="moderationCount">0</span>
+    </div>
+    <div class="moderation-list" id="moderationList"></div>
+  </div>
   <div class="present-topbar">
     <div style="display:flex; align-items:center;">
       <img id="presentBrandLogo" class="brand-logo" hidden alt="">
@@ -369,6 +386,7 @@ function renderSlideEditor() {
   $('editWordcloud').hidden = s.type !== 'wordcloud';
   $('editScale').hidden = s.type !== 'scale';
   $('editInfo').hidden = s.type !== 'info';
+  $('editQa').hidden = s.type !== 'qa';
 
   if (s.type === 'choice') {
     renderOptionRows();
@@ -381,6 +399,7 @@ function renderSlideEditor() {
     $('optMaxLabel').value = s.maxLabel || '';
   }
   if (s.type === 'info') $('optInfoText').value = s.text || '';
+  if (s.type === 'qa') $('optModerated').checked = !!s.moderated;
   renderResultsPanel();
 }
 
@@ -425,6 +444,7 @@ $('slideType').addEventListener('change', (e) => {
 $('slideQuestion').addEventListener('input', (e) => { currentSlide().question = e.target.value; renderSlideList(); scheduleSave(); });
 $('optMultiple').addEventListener('change', (e) => { currentSlide().multiple = e.target.checked; scheduleSave(); });
 $('optMaxWords').addEventListener('change', (e) => { currentSlide().maxWords = parseInt(e.target.value, 10); scheduleSave(); });
+$('optModerated').addEventListener('change', (e) => { currentSlide().moderated = e.target.checked; scheduleSave(); });
 $('optScaleMax').addEventListener('change', (e) => { currentSlide().max = parseInt(e.target.value, 10); scheduleSave(); });
 $('optMinLabel').addEventListener('input', (e) => { currentSlide().minLabel = e.target.value; scheduleSave(); });
 $('optMaxLabel').addEventListener('input', (e) => { currentSlide().maxLabel = e.target.value; scheduleSave(); });
@@ -587,6 +607,7 @@ async function enterPresent() {
 function exitPresent() {
   presenting = false;
   $('presentMode').hidden = true;
+  $('moderationPanel').hidden = true;
   document.body.style.overflow = '';
   applyBrand(null, PRES_ID, [$('presentBrandLogo')]); // Editor-Farben zurücksetzen
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -624,6 +645,51 @@ function onSnapshot(snap) {
   }
   q.textContent = snap.slide.question || typeMeta(snap.slide.type).label || '';
   renderResults($('presentResults'), snap.slide, snap.results, {});
+  refreshModeration(snap);
+}
+
+// Q&A-Moderation: ausstehende Fragen der aktiven Folie freigeben/entfernen.
+async function refreshModeration(snap) {
+  const panel = $('moderationPanel');
+  const isMod = presenting && snap.slide && snap.slide.type === 'qa' && snap.slide.moderated;
+  if (!isMod) { panel.hidden = true; return; }
+  try {
+    const data = await api('GET', `/api/presentations/${PRES_ID}/moderation`, undefined, TOKEN);
+    renderModeration(data.pending || []);
+  } catch { /* nächster Snapshot versucht es erneut */ }
+}
+
+function renderModeration(pending) {
+  const list = $('moderationList');
+  $('moderationCount').textContent = String(pending.length);
+  $('moderationPanel').hidden = false;
+  if (!pending.length) {
+    list.innerHTML = `<div class="moderation-empty">${esc(t('presenter.moderation.empty'))}</div>`;
+    return;
+  }
+  list.innerHTML = '';
+  for (const item of pending) {
+    const row = el(`
+      <div class="moderation-item">
+        <div class="moderation-text"></div>
+        <div class="moderation-actions">
+          <button class="ds-btn moderation-approve" type="button" title="${esc(t('presenter.moderation.approve'))}">✓</button>
+          <button class="ds-btn moderation-reject" type="button" title="${esc(t('presenter.moderation.reject'))}">✕</button>
+        </div>
+      </div>`);
+    row.querySelector('.moderation-text').textContent = (item.name ? item.name + ': ' : '') + item.text;
+    row.querySelector('.moderation-approve').addEventListener('click', () => moderate(item.id, 'approve'));
+    row.querySelector('.moderation-reject').addEventListener('click', () => moderate(item.id, 'reject'));
+    list.appendChild(row);
+  }
+}
+
+async function moderate(itemId, action) {
+  const slideId = lastSnapshot && lastSnapshot.slide ? lastSnapshot.slide.id : null;
+  try {
+    const data = await api('POST', `/api/presentations/${PRES_ID}/moderate`, { slideId, itemId, action }, TOKEN);
+    renderModeration(data.pending || []);
+  } catch { /* ignorieren — nächster Snapshot aktualisiert */ }
 }
 
 document.addEventListener('keydown', (e) => {
