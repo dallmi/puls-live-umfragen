@@ -9,6 +9,8 @@ puls-windows.zip
 
 # Playwright-/Debug-Artefakte
 *.png
+# Ausnahme: Screenshots der In-App-Anleitung gehören ins Repo
+!public/img/anleitung/*.png
 *-snapshot.md
 configure-snapshot.md
 deploy-menu.md

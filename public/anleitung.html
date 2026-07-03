@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PULS — Quickstart-Anleitung</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="stylesheet" href="/design-system.css">
+<link rel="stylesheet" href="/app.css">
+<style>
+  .guide { max-width: 820px; margin: 0 auto; padding: 1.5rem 1.25rem 4rem; }
+  .guide-cover { padding: 1rem 0 1.75rem; border-bottom: 2px solid var(--primary); margin-bottom: 2rem; }
+  .guide-cover .kicker { font-size: 0.8rem; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase; color: var(--primary); }
+  .guide-cover h1 { font-size: 2.6rem; font-weight: 300; line-height: 1.1; color: var(--black); margin: 0.35rem 0 0.75rem; letter-spacing: -0.01em; }
+  .guide-cover p { font-size: 1rem; color: var(--grey-5); max-width: 46rem; line-height: 1.5; }
+  .guide-meta { margin-top: 1rem; font-size: 0.85rem; color: var(--grey-4); }
+  .guide-meta b { color: var(--grey-6); }
+
+  .step { display: grid; grid-template-columns: 2.4rem 1fr; gap: 0 1rem; margin-bottom: 2.5rem; align-items: start; }
+  .step-num {
+    width: 2.4rem; height: 2.4rem; display: flex; align-items: center; justify-content: center;
+    background: var(--primary); color: var(--white); border-radius: var(--radius);
+    font-size: 1.15rem; font-weight: 700; font-variant-numeric: tabular-nums;
+  }
+  .step-body h2 { font-size: 1.3rem; font-weight: 600; color: var(--black); margin: 0.15rem 0 0.5rem; line-height: 1.25; }
+  .step-body p { font-size: 0.95rem; color: var(--grey-6); line-height: 1.55; margin: 0 0 0.6rem; }
+  .step-body ul { margin: 0.2rem 0 0.7rem; padding-left: 1.15rem; }
+  .step-body li { font-size: 0.92rem; color: var(--grey-6); line-height: 1.5; margin-bottom: 0.2rem; }
+  .step-body li b { color: var(--black); }
+  .shot { margin-top: 0.4rem; border: 1px solid var(--grey-1); border-radius: var(--radius); overflow: hidden; background: var(--white); }
+  .shot img { display: block; width: 100%; height: auto; }
+  .shot.phone { max-width: 300px; }
+  .cap { font-size: 0.78rem; color: var(--grey-4); margin-top: 0.4rem; }
+
+  .feature-h { font-size: 1.3rem; font-weight: 600; color: var(--black); margin: 0.5rem 0 1rem; padding-top: 1.5rem; border-top: 1px solid var(--grey-1); }
+  .feature-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem 1.25rem; }
+  .feat { border-left: 3px solid var(--primary); padding: 0.35rem 0 0.35rem 0.75rem; }
+  .feat b { display: block; font-size: 0.92rem; color: var(--black); }
+  .feat span { font-size: 0.85rem; color: var(--grey-5); line-height: 1.45; }
+
+  .tip { background: var(--surface); border-radius: var(--radius); padding: 0.9rem 1.1rem; margin: 1.5rem 0; font-size: 0.9rem; color: var(--grey-6); line-height: 1.5; }
+  .tip b { color: var(--black); }
+
+  .pdf-fab {
+    position: sticky; bottom: 1.25rem; float: right; margin-top: 1rem;
+  }
+
+  /* --- Druck / PDF --------------------------------------------------------- */
+  @media print {
+    .no-print { display: none !important; }
+    body { background: var(--white); }
+    .guide { max-width: none; padding: 0; }
+    .step, .feat, .shot { break-inside: avoid; page-break-inside: avoid; }
+    .guide-cover { break-after: avoid; }
+    h2, .feature-h { break-after: avoid; }
+    a { color: inherit; text-decoration: none; }
+    /* Farben im PDF erhalten */
+    * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    @page { margin: 14mm 14mm 16mm; }
+  }
+</style>
+</head>
+<body>
+
+<header class="ds-header no-print">
+  <a class="brand ds-title" href="/"><b>PULS</b> <span>Quickstart</span></a>
+  <div class="ds-header-controls">
+    <a class="ds-btn ds-btn-primary" href="/anleitung.pdf" download="PULS-Anleitung.pdf">PDF herunterladen</a>
+    <button class="ds-btn" id="btnPrint" type="button">Drucken</button>
+    <a class="ds-btn" href="/">Zur App</a>
+  </div>
+</header>
+
+<main>
+  <div class="guide">
+
+    <section class="guide-cover">
+      <div class="kicker">Live-Umfragen · Anleitung</div>
+      <h1>In 5 Minuten zur ersten Live‑Umfrage</h1>
+      <p>PULS ist ein Werkzeug für interaktive Präsentationen: Sie stellen Fragen, das Publikum stimmt per Code auf dem eigenen Handy ab, und die Ergebnisse erscheinen live auf der Leinwand. Keine Konten, keine Installation — nur ein Browser.</p>
+      <div class="guide-meta">Für den Moderator (Sie) genügt ein Laptop mit Beamer, für das Publikum ein Smartphone. Diese Seite lässt sich oben rechts über <b>„Als PDF speichern"</b> als PDF sichern oder ausdrucken.</div>
+    </section>
+
+    <div class="step">
+      <div class="step-num">1</div>
+      <div class="step-body">
+        <h2>Präsentation erstellen</h2>
+        <p>Öffnen Sie die Startseite, geben Sie unter <b>„Neue Präsentation erstellen"</b> einen Titel ein und klicken Sie auf <b>Erstellen</b>. Sie erhalten sofort einen Moderationslink und einen sechsstelligen Zugangscode für das Publikum.</p>
+        <ul>
+          <li>Der <b>Moderationslink</b> ist Ihr privater Bearbeitungs‑ und Steuerlink — nur für Sie.</li>
+          <li>Ihre Präsentationen erscheinen auf demselben Gerät wieder unter <b>„Meine Präsentationen"</b>.</li>
+        </ul>
+        <div class="shot"><img src="/img/anleitung/01-start.png" alt="Startseite: Präsentation erstellen oder mit Code beitreten"></div>
+        <div class="cap">Startseite — links beitreten (Publikum), rechts erstellen (Moderation).</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">2</div>
+      <div class="step-body">
+        <h2>Folien anlegen</h2>
+        <p>Im Editor fügen Sie über <b>„+ Neue Folie"</b> Folien hinzu. Wählen Sie je Folie einen <b>Folientyp</b> und tippen Sie Frage und Optionen ein — alles wird automatisch gespeichert.</p>
+        <ul>
+          <li><b>Multiple Choice</b> · <b>Wortwolke</b> · <b>Offene Frage</b> · <b>Skala</b></li>
+          <li><b>Ranking</b> (Reihenfolge) · <b>100 Punkte</b> (Punkte verteilen) · <b>Quiz</b> (mit richtiger Antwort)</li>
+          <li><b>Q&amp;A</b> (Fragen aus dem Publikum mit 👍) · <b>Infofolie</b></li>
+        </ul>
+        <div class="shot"><img src="/img/anleitung/02-editor.png" alt="Editor mit Folienliste, Präsentationsoptionen und Folientyp-Auswahl"></div>
+        <div class="cap">Editor — Zugangscode/QR, Folienliste, Präsentationsoptionen und Folien‑Einstellungen.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">3</div>
+      <div class="step-body">
+        <h2>Präsentieren</h2>
+        <p>Klicken Sie oben rechts auf <b>Präsentieren</b>. Auf der Leinwand erscheinen Zugangscode und QR‑Code — das Publikum steigt darüber ein. Die Ergebnisse aktualisieren sich in Echtzeit.</p>
+        <ul>
+          <li>Mit <b>← Zurück / Weiter →</b> (oder den Pfeiltasten) wechseln Sie die Folie.</li>
+          <li><b>Ergebnisse ausblenden</b> versteckt die Auswertung, <b>Abstimmung sperren</b> beendet die Abstimmung.</li>
+        </ul>
+        <div class="shot"><img src="/img/anleitung/03-praesentieren.png" alt="Präsentationsmodus mit Live-Balkendiagramm, Code und QR-Code"></div>
+        <div class="cap">Präsentationsmodus — Live‑Ergebnis, Beitrittscode und QR unten links.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">4</div>
+      <div class="step-body">
+        <h2>Das Publikum stimmt ab</h2>
+        <p>Die Teilnehmenden öffnen die angezeigte Adresse (oder scannen den QR‑Code), geben den Code ein — und beantworten die aktuelle Frage auf ihrem Handy. Ganz unten können sie zusätzlich mit Emojis reagieren.</p>
+        <div class="shot phone"><img src="/img/anleitung/04-abstimmen.png" alt="Handy-Ansicht: Frage mit Antwortoptionen und Reaktions-Emojis"></div>
+        <div class="cap">Teilnehmer‑Ansicht auf dem Smartphone.</div>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="step-num">5</div>
+      <div class="step-body">
+        <h2>Quiz mit Rangliste</h2>
+        <p>Beim Folientyp <b>Quiz</b> markieren Sie die richtige Antwort. Teilnehmende bekommen sofort Rückmeldung, richtige (und schnelle) Antworten geben Punkte, und eine <b>🏆 Rangliste</b> zeigt die Führenden. Die Auflösung erscheint erst, wenn Sie <b>Ergebnisse einblenden</b> klicken.</p>
+        <div class="shot"><img src="/img/anleitung/05-quiz.png" alt="Quiz-Auflösung mit grün markierter richtiger Antwort und Rangliste"></div>
+        <div class="cap">Quiz nach der Auflösung — richtige Antwort grün, darunter die Rangliste.</div>
+      </div>
+    </div>
+
+    <h2 class="feature-h">Weitere Funktionen</h2>
+    <div class="feature-grid">
+      <div class="feat"><b>Branding</b><span>Akzentfarbe und eigenes Logo pro Präsentation.</span></div>
+      <div class="feat"><b>Namen erfassen</b><span>Optional; Namen erscheinen bei Q&amp;A, offenen Antworten und in der Quiz‑Rangliste.</span></div>
+      <div class="feat"><b>Selbststeuerung</b><span>Das Publikum blättert im eigenen Tempo durch alle Folien.</span></div>
+      <div class="feat"><b>Q&amp;A‑Moderation</b><span>Fragen erst nach Ihrer Freigabe öffentlich zeigen.</span></div>
+      <div class="feat"><b>Reaktionen</b><span>Live‑Emojis (👍 ❤️ 👏 …) vom Publikum.</span></div>
+      <div class="feat"><b>Trends über Sitzungen</b><span>„Neue Sitzung starten" archiviert die Ergebnisse; ein Verlauf vergleicht mehrere Durchläufe.</span></div>
+      <div class="feat"><b>Export</b><span>Ergebnisse als <b>Excel</b> und <b>PowerPoint</b> herunterladen.</span></div>
+      <div class="feat"><b>Anonym &amp; datensparsam</b><span>Keine Konten, keine Cookies, keine Tracker.</span></div>
+    </div>
+
+    <div class="tip">
+      <b>Tipp:</b> Erstellen Sie Ihre Folien in Ruhe vorab. Am Veranstaltungstag genügt es, den Moderationslink zu öffnen, auf <b>Präsentieren</b> zu klicken und den Code zu zeigen. Ergebnisse bleiben auch nach der Veranstaltung erhalten und lassen sich exportieren.
+    </div>
+
+    <a class="ds-btn ds-btn-primary pdf-fab no-print" href="/anleitung.pdf" download="PULS-Anleitung.pdf">PDF herunterladen</a>
+  </div>
+</main>
+
+<footer class="footer-note no-print" style="text-align:center;">
+  <a href="/">Zur App</a> · <a href="/datenschutz.html">Datenschutz</a>
+</footer>
+
+<script>
+  document.getElementById('btnPrint').addEventListener('click', () => window.print());
+</script>
+</body>
+</html>

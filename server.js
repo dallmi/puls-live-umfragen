@@ -589,6 +589,8 @@ const MIME = {
   '.js': 'text/javascript; charset=utf-8',
   '.svg': 'image/svg+xml',
   '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.pdf': 'application/pdf',
   '.ico': 'image/x-icon',
   '.woff2': 'font/woff2',
 };

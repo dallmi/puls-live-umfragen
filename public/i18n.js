@@ -29,6 +29,7 @@ const DICT = {
   'landing.mine.moderate': { de: 'Moderieren', en: 'Manage' },
   'landing.footer': { de: 'Keine Konten, keine Cookies, keine Tracker.', en: 'No accounts, no cookies, no trackers.' },
   'landing.privacy': { de: 'Datenschutz', en: 'Privacy' },
+  'landing.guide': { de: 'Anleitung', en: 'Guide' },
   'landing.pageTitle': { de: 'PULS — Live-Umfragen', en: 'PULS — Live Polling' },
 
   // --- Gemeinsame Felder ------------------------------------------------------
