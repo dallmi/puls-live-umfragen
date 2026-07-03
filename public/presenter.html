@@ -103,17 +103,19 @@
           </div>
 
           <!-- Multiple Choice -->
-          <div id="editChoice" hidden>
+          <div id="editOptions" hidden>
             <div class="field">
               <label data-i18n="presenter.field.options">Antwortoptionen (max. 8)</label>
               <div id="optionRows"></div>
               <button class="ds-btn" id="btnAddOption" type="button" data-i18n="presenter.field.addOption">+ Option</button>
             </div>
-            <div class="field">
+            <div class="field" id="editMultiple">
               <label style="display:flex; align-items:center; gap:0.5rem; font-weight:400;">
                 <input type="checkbox" id="optMultiple" style="width:auto;"> <span data-i18n="presenter.field.allowMultiple">Mehrfachauswahl erlauben</span>
               </label>
             </div>
+            <p class="ds-card-subtitle" id="pointsHint" hidden data-i18n="presenter.field.pointsHint">Jede Person verteilt 100 Punkte auf die Optionen.</p>
+            <p class="ds-card-subtitle" id="rankingHint" hidden data-i18n="presenter.field.rankingHint">Jede Person bringt die Optionen in ihre Wunschreihenfolge.</p>
           </div>
 
           <!-- Wortwolke -->
@@ -382,15 +384,19 @@ function renderSlideEditor() {
   $('typeHint').textContent = typeMeta(s.type).hint || '';
   $('slideQuestion').value = s.question || '';
 
-  $('editChoice').hidden = s.type !== 'choice';
+  const hasOptions = s.type === 'choice' || s.type === 'ranking' || s.type === 'points';
+  $('editOptions').hidden = !hasOptions;
   $('editWordcloud').hidden = s.type !== 'wordcloud';
   $('editScale').hidden = s.type !== 'scale';
   $('editInfo').hidden = s.type !== 'info';
   $('editQa').hidden = s.type !== 'qa';
 
-  if (s.type === 'choice') {
+  if (hasOptions) {
     renderOptionRows();
-    $('optMultiple').checked = !!s.multiple;
+    $('editMultiple').hidden = s.type !== 'choice';
+    $('pointsHint').hidden = s.type !== 'points';
+    $('rankingHint').hidden = s.type !== 'ranking';
+    if (s.type === 'choice') $('optMultiple').checked = !!s.multiple;
   }
   if (s.type === 'wordcloud') $('optMaxWords').value = String(s.maxWords || 1);
   if (s.type === 'scale') {
@@ -431,7 +437,7 @@ function renderOptionRows() {
 $('slideType').addEventListener('change', (e) => {
   const s = currentSlide();
   s.type = e.target.value;
-  if (s.type === 'choice' && !Array.isArray(s.options)) s.options = ['', ''];
+  if ((s.type === 'choice' || s.type === 'ranking' || s.type === 'points') && !Array.isArray(s.options)) s.options = ['', ''];
   if (s.type === 'wordcloud' && !s.maxWords) s.maxWords = 1;
   if (s.type === 'scale') {
     s.max = s.max || 5; s.min = 1;

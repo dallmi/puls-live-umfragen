@@ -217,6 +217,8 @@ function renderResults(container, slide, results, opts = {}) {
     case 'wordcloud': return renderWordcloud(container, results, opts);
     case 'open':      return renderOpen(container, results, opts);
     case 'scale':     return renderScale(container, slide, results, opts);
+    case 'points':    return renderPoints(container, slide, results, opts);
+    case 'ranking':   return renderRanking(container, slide, results, opts);
     case 'qa':        return renderQA(container, results, opts);
     case 'info':      return renderInfo(container, slide);
   }
@@ -245,6 +247,51 @@ function renderChoice(container, slide, results, opts) {
     });
   });
   container.appendChild(chart);
+  container.appendChild(el(`<p class="results-meta">${t('results.choice.voters', { n: results.voters })}</p>`));
+}
+
+function renderPoints(container, slide, results, opts) {
+  const totals = results.totals || [];
+  const grand = totals.reduce((a, b) => a + b, 0);
+  const max = Math.max(...totals, 1);
+  // nach Punkten absteigend sortieren, aber Option-Label über den Index behalten
+  const order = (slide.options || []).map((option, i) => ({ option, pts: totals[i] || 0 }))
+    .sort((a, b) => b.pts - a.pts);
+  const chart = el(`<div class="barchart" role="img" aria-label="${t('results.points.aria')}"></div>`);
+  order.forEach(({ option, pts }) => {
+    const isLeader = pts > 0 && pts === max;
+    const pct = grand ? Math.round((pts / grand) * 100) : 0;
+    const row = el(`
+      <div class="bar-row">
+        <div class="bar-label">${esc(option)}</div>
+        <div class="bar-track">
+          <div class="bar-fill${isLeader ? ' leader' : ''}" style="width:0%"></div>
+        </div>
+        <div class="bar-value">${pts}<span class="bar-pct">${pct}%</span></div>
+      </div>`);
+    chart.appendChild(row);
+    requestAnimationFrame(() => {
+      row.querySelector('.bar-fill').style.width = (max ? (pts / max) * 100 : 0) + '%';
+    });
+  });
+  container.appendChild(chart);
+  container.appendChild(el(`<p class="results-meta">${t('results.points.meta', { n: results.voters, total: grand })}</p>`));
+}
+
+function renderRanking(container, slide, results, opts) {
+  const list = el('<ol class="ranking-result"></ol>');
+  (results.items || []).forEach((it, pos) => {
+    const label = (slide.options || [])[it.index] || '';
+    const avg = results.voters ? it.avgRank.toFixed(2) : '–';
+    const row = el(`
+      <li class="ranking-row${pos === 0 && results.voters ? ' leader' : ''}">
+        <span class="ranking-pos">${pos + 1}</span>
+        <span class="ranking-label">${esc(label)}</span>
+        <span class="ranking-avg" title="${t('results.ranking.avgTitle')}">Ø ${avg}</span>
+      </li>`);
+    list.appendChild(row);
+  });
+  container.appendChild(list);
   container.appendChild(el(`<p class="results-meta">${t('results.choice.voters', { n: results.voters })}</p>`));
 }
 

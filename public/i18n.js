@@ -77,6 +77,8 @@ const DICT = {
   'presenter.field.infoText': { de: 'Text', en: 'Text' },
   'presenter.field.moderated': { de: 'Fragen vor Anzeige freigeben (Moderation)', en: 'Approve questions before showing (moderation)' },
   'presenter.field.moderatedHint': { de: 'Neue Fragen erscheinen erst öffentlich, nachdem Sie sie im Präsentationsmodus freigegeben haben.', en: 'New questions become public only after you approve them in presentation mode.' },
+  'presenter.field.pointsHint': { de: 'Jede Person verteilt 100 Punkte auf die Optionen.', en: 'Each person distributes 100 points across the options.' },
+  'presenter.field.rankingHint': { de: 'Jede Person bringt die Optionen in ihre Wunschreihenfolge.', en: 'Each person puts the options in their preferred order.' },
   'presenter.field.optionPlaceholder': { de: 'Option {{n}}', en: 'Option {{n}}' },
   'presenter.field.removeOption': { de: 'Option entfernen', en: 'Remove option' },
   'presenter.empty.title': { de: 'Noch keine Folien', en: 'No slides yet' },
@@ -142,6 +144,14 @@ const DICT = {
   'vote.open.sent': { de: 'Antwort gesendet.', en: 'Answer sent.' },
   'vote.open.limitReached': { de: 'Limit erreicht — maximal 5 Antworten pro Person.', en: 'Limit reached — maximum 5 answers per person.' },
   'vote.scale.recorded': { de: 'Bewertung erfasst. Tippen Sie erneut, um sie zu ändern.', en: 'Rating recorded. Tap again to change it.' },
+  'vote.points.remaining': { de: 'Noch {{n}} von {{total}} Punkten übrig', en: '{{n}} of {{total}} points left' },
+  'vote.points.submit': { de: 'Punkte abschicken', en: 'Submit points' },
+  'vote.points.recorded': { de: 'Verteilung erfasst. Sie können sie ändern und erneut senden.', en: 'Distribution recorded. You can change it and resend.' },
+  'vote.ranking.hint': { de: 'Reihenfolge mit ▲ / ▼ anpassen — oben = beste Wahl.', en: 'Reorder with ▲ / ▼ — top = best choice.' },
+  'vote.ranking.up': { de: 'Nach oben', en: 'Move up' },
+  'vote.ranking.down': { de: 'Nach unten', en: 'Move down' },
+  'vote.ranking.submit': { de: 'Reihenfolge abschicken', en: 'Submit ranking' },
+  'vote.ranking.recorded': { de: 'Reihenfolge erfasst. Sie können sie ändern und erneut senden.', en: 'Ranking recorded. You can change it and resend.' },
   'vote.qa.placeholder': { de: 'Ihre Frage an die Moderation', en: 'Your question for the host' },
   'vote.qa.submit': { de: 'Frage einreichen', en: 'Submit question' },
   'vote.qa.sent': { de: 'Frage eingereicht.', en: 'Question submitted.' },
@@ -155,6 +165,12 @@ const DICT = {
     de: { one: '{{n}} Stimme', other: '{{n}} Stimmen' },
     en: { one: '{{n}} vote', other: '{{n}} votes' },
   },
+  'results.points.aria': { de: 'Punkteverteilung', en: 'Points distribution' },
+  'results.points.meta': {
+    de: { one: '{{n}} Teilnehmende · {{total}} Punkte gesamt', other: '{{n}} Teilnehmende · {{total}} Punkte gesamt' },
+    en: { one: '{{n}} participant · {{total}} points total', other: '{{n}} participants · {{total}} points total' },
+  },
+  'results.ranking.avgTitle': { de: 'Durchschnittliche Position (niedriger = besser)', en: 'Average position (lower = better)' },
   'results.wordcloud.empty': { de: 'Noch keine Begriffe — die Wolke entsteht live.', en: 'No terms yet — the cloud builds live.' },
   'results.wordcloud.metaVoters': {
     de: { one: '{{n}} Teilnehmende', other: '{{n}} Teilnehmende' },
@@ -190,13 +206,17 @@ const DICT = {
   'type.open.hint': { de: 'Freitext-Antworten erscheinen als Antwort-Wand.', en: 'Free-text answers appear as an answer wall.' },
   'type.scale.label': { de: 'Skala', en: 'Scale' },
   'type.scale.hint': { de: 'Bewertung auf einer Zahlenskala, mit Durchschnitt.', en: 'Rating on a numeric scale, with average.' },
+  'type.ranking.label': { de: 'Ranking', en: 'Ranking' },
+  'type.ranking.hint': { de: 'Teilnehmende bringen die Optionen in ihre Reihenfolge.', en: 'Participants put the options in their preferred order.' },
+  'type.points.label': { de: '100-Punkte-Verteilung', en: '100 Points' },
+  'type.points.hint': { de: 'Jede Person verteilt 100 Punkte auf die Optionen.', en: 'Each person distributes 100 points across the options.' },
   'type.qa.label': { de: 'Q&A', en: 'Q&A' },
   'type.qa.hint': { de: 'Publikum stellt Fragen und stimmt darüber ab.', en: 'Audience asks questions and votes on them.' },
   'type.info.label': { de: 'Infofolie', en: 'Info Slide' },
   'type.info.hint': { de: 'Statische Folie ohne Interaktion.', en: 'Static slide with no interaction.' },
 };
 
-const SLIDE_TYPES = ['choice', 'wordcloud', 'open', 'scale', 'qa', 'info'];
+const SLIDE_TYPES = ['choice', 'wordcloud', 'open', 'scale', 'ranking', 'points', 'qa', 'info'];
 
 // ---------------------------------------------------------------------------
 // Sprachwahl

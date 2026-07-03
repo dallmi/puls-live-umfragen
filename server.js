@@ -127,7 +127,7 @@ function touch(pres) {
 // Domänenlogik
 // ---------------------------------------------------------------------------
 
-const SLIDE_TYPES = ['choice', 'wordcloud', 'open', 'scale', 'qa', 'info'];
+const SLIDE_TYPES = ['choice', 'wordcloud', 'open', 'scale', 'ranking', 'points', 'qa', 'info'];
 const REACTIONS = ['👍', '❤️', '👏', '😂', '😮', '🎉']; // erlaubte Emoji-Reaktionen
 const REACTION_WINDOW_MS = 6000; // Reaktionen sind ephemer: nur die letzten Sekunden werden gezeigt
 const HEX_COLOR = /^#[0-9a-fA-F]{6}$/;
@@ -211,6 +211,15 @@ function sanitizeSlide(input) {
   if (type === 'qa') {
     slide.moderated = !!input.moderated; // Fragen erst nach Freigabe öffentlich
   }
+  if (type === 'ranking' || type === 'points') {
+    slide.options = (Array.isArray(input.options) ? input.options : [])
+      .map((o) => clampText(String(o), 120))
+      .filter(Boolean)
+      .slice(0, 8);
+  }
+  if (type === 'points') {
+    slide.total = 100; // feste Gesamtpunktzahl je Teilnehmer
+  }
   return slide;
 }
 
@@ -285,6 +294,43 @@ function computeResults(slide, showNames = false) {
         n++;
       }
       return { kind: 'scale', dist, avg: n ? sum / n : 0, voters: n, min: slide.min, max: slide.max };
+    }
+    case 'points': {
+      const n = (slide.options || []).length;
+      const totals = new Array(n).fill(0);
+      let voters = 0;
+      for (const [, arr] of entries) {
+        if (!Array.isArray(arr)) continue;
+        let any = false;
+        for (let i = 0; i < n; i++) {
+          const v = Number(arr[i]) || 0;
+          if (v > 0) { totals[i] += v; any = true; }
+        }
+        if (any) voters++;
+      }
+      return { kind: 'points', totals, voters, total: slide.total || 100 };
+    }
+    case 'ranking': {
+      const n = (slide.options || []).length;
+      const score = new Array(n).fill(0);   // Borda: beste Position (0) → n-1 Punkte
+      const rankSum = new Array(n).fill(0); // Summe der 1-basierten Positionen (für Ø-Rang)
+      let voters = 0;
+      for (const [, arr] of entries) {
+        if (!Array.isArray(arr) || arr.length !== n) continue;
+        voters++;
+        arr.forEach((optIdx, pos) => {
+          if (Number.isInteger(optIdx) && optIdx >= 0 && optIdx < n) {
+            score[optIdx] += (n - 1 - pos);
+            rankSum[optIdx] += (pos + 1);
+          }
+        });
+      }
+      const items = [];
+      for (let i = 0; i < n; i++) {
+        items.push({ index: i, score: score[i], avgRank: voters ? rankSum[i] / voters : 0 });
+      }
+      items.sort((a, b) => b.score - a.score || a.avgRank - b.avgRank);
+      return { kind: 'ranking', items, voters };
     }
     case 'qa': {
       const questions = [];
@@ -775,7 +821,7 @@ function exportWorkbook(pres) {
   const overviewData = [];
   pres.slides.forEach((slide, i) => {
     const results = computeResults(slide, !!pres.collectNames);
-    const label = { choice: 'Multiple Choice', wordcloud: 'Wortwolke', open: 'Offene Frage', scale: 'Skala', qa: 'Q&A', info: 'Infofolie' }[slide.type] || slide.type;
+    const label = { choice: 'Multiple Choice', wordcloud: 'Wortwolke', open: 'Offene Frage', scale: 'Skala', ranking: 'Ranking', points: '100-Punkte-Verteilung', qa: 'Q&A', info: 'Infofolie' }[slide.type] || slide.type;
     overviewData.push([i + 1, label, slide.question || '', results && results.voters !== undefined ? results.voters : '']);
 
     let sheet = null;
@@ -825,6 +871,25 @@ function exportWorkbook(pres) {
         };
         break;
       }
+      case 'points': {
+        const grand = results.totals.reduce((a, b) => a + b, 0);
+        sheet = {
+          headers: ['Option', 'Punkte', 'Ø pro Person', 'Anteil'],
+          data: (slide.options || []).map((opt, j) => {
+            const p = results.totals[j] || 0;
+            return [opt, p, results.voters ? Math.round((p / results.voters) * 10) / 10 : 0, grand ? `${Math.round((p / grand) * 1000) / 10} %` : '–'];
+          }),
+          totals: [['Teilnehmende', results.voters, '', '']],
+        };
+        break;
+      }
+      case 'ranking':
+        sheet = {
+          headers: ['Rang', 'Option', 'Ø-Position', 'Borda-Punkte'],
+          data: results.items.map((it, j) => [j + 1, (slide.options || [])[it.index] || '', results.voters ? Math.round(it.avgRank * 100) / 100 : '–', it.score]),
+          totals: [['Teilnehmende', results.voters, '', '']],
+        };
+        break;
       case 'qa':
         sheet = pres.collectNames
           ? {
@@ -1196,6 +1261,34 @@ function applyAnswer(slide, pid, body, name = '') {
       const num = Number(body.value);
       if (!Number.isFinite(num) || num < slide.min || num > slide.max) return { ok: false, error: 'out_of_range' };
       slide.answers[pid] = num;
+      return { ok: true };
+    }
+    case 'points': {
+      const n = (slide.options || []).length;
+      const arr = Array.isArray(body.value) ? body.value : [];
+      const pts = [];
+      let sum = 0;
+      for (let i = 0; i < n; i++) {
+        let v = Math.round(Number(arr[i]));
+        if (!Number.isFinite(v) || v < 0) v = 0;
+        pts.push(v);
+        sum += v;
+      }
+      if (sum <= 0) return { ok: false, error: 'no_points' };
+      if (sum > (slide.total || 100)) return { ok: false, error: 'too_many_points' };
+      slide.answers[pid] = pts; // erneutes Abstimmen ersetzt die vorherige Verteilung
+      return { ok: true };
+    }
+    case 'ranking': {
+      const n = (slide.options || []).length;
+      const arr = Array.isArray(body.value) ? body.value.map((x) => parseInt(x, 10)) : [];
+      if (arr.length !== n) return { ok: false, error: 'bad_ranking' };
+      const seen = new Set();
+      for (const idx of arr) {
+        if (!Number.isInteger(idx) || idx < 0 || idx >= n || seen.has(idx)) return { ok: false, error: 'bad_ranking' };
+        seen.add(idx);
+      }
+      slide.answers[pid] = arr; // erneutes Abstimmen ersetzt die vorherige Reihenfolge
       return { ok: true };
     }
     case 'qa': {

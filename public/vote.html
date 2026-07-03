@@ -181,6 +181,8 @@ function buildSlide() {
       case 'wordcloud': buildWordcloud(form, slide); break;
       case 'open':      buildOpen(form, slide); break;
       case 'scale':     buildScale(form, slide); break;
+      case 'points':    buildPoints(form, slide); break;
+      case 'ranking':   buildRanking(form, slide); break;
       case 'qa':        buildQa(form, slide); break;
     }
   }
@@ -410,6 +412,119 @@ function buildScale(form, slide) {
     note.appendChild(submittedNote(t('vote.scale.recorded')));
     showResults();
   }
+}
+
+// --- 100-Punkte-Verteilung ---------------------------------------------------
+function buildPoints(form, slide) {
+  const total = slide.total || 100;
+  const opts = slide.options || [];
+  const prev = votedStore()[slide.id];
+  const pts = Array.isArray(prev) && prev.length === opts.length ? [...prev] : opts.map(() => 0);
+
+  const box = el('<div class="points-list"></div>');
+  const remainLine = el(`<div class="points-remaining"></div>`);
+  const rows = [];
+
+  function used() { return pts.reduce((a, b) => a + (b || 0), 0); }
+  function remaining() { return total - used(); }
+  function refresh() {
+    const rem = remaining();
+    remainLine.textContent = t('vote.points.remaining', { n: rem, total });
+    remainLine.classList.toggle('none-left', rem <= 0);
+    rows.forEach((r, i) => {
+      r.valueEl.textContent = pts[i];
+      r.plus.disabled = rem <= 0;
+      r.minus.disabled = (pts[i] || 0) <= 0;
+    });
+    submitBtn.disabled = used() <= 0;
+  }
+
+  opts.forEach((opt, i) => {
+    const row = el(`
+      <div class="points-row">
+        <span class="points-label">${esc(opt)}</span>
+        <div class="points-stepper">
+          <button type="button" class="points-btn points-minus" aria-label="−">−</button>
+          <span class="points-value">0</span>
+          <button type="button" class="points-btn points-plus" aria-label="+">+</button>
+        </div>
+      </div>`);
+    const minus = row.querySelector('.points-minus');
+    const plus = row.querySelector('.points-plus');
+    const valueEl = row.querySelector('.points-value');
+    const STEP = 5;
+    minus.addEventListener('click', () => { pts[i] = Math.max(0, (pts[i] || 0) - STEP); refresh(); });
+    plus.addEventListener('click', () => {
+      const add = Math.min(STEP, remaining());
+      if (add > 0) { pts[i] = (pts[i] || 0) + add; refresh(); }
+    });
+    rows.push({ valueEl, plus, minus });
+    box.appendChild(row);
+  });
+
+  const submitBtn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg" style="margin-top:1rem;">${t('vote.points.submit')}</button>`);
+  const note = el('<div></div>');
+  submitBtn.addEventListener('click', () => {
+    if (used() <= 0) return;
+    submit(pts, () => {
+      markVoted(slide.id, pts);
+      note.innerHTML = '';
+      note.appendChild(submittedNote(t('vote.points.recorded')));
+      showResults();
+    });
+  });
+
+  form.appendChild(box);
+  form.appendChild(remainLine);
+  form.appendChild(submitBtn);
+  form.appendChild(note);
+  refresh();
+  if (Array.isArray(prev)) { note.appendChild(submittedNote(t('vote.points.recorded'))); showResults(); }
+}
+
+// --- Ranking (Reihenfolge per Auf/Ab) ----------------------------------------
+function buildRanking(form, slide) {
+  const opts = slide.options || [];
+  const prev = votedStore()[slide.id];
+  // order = Array von Options-Indizes in gewählter Reihenfolge (erst = bester)
+  let order = Array.isArray(prev) && prev.length === opts.length ? [...prev] : opts.map((_, i) => i);
+
+  const list = el('<ol class="ranking-input"></ol>');
+  function render() {
+    list.innerHTML = '';
+    order.forEach((optIdx, pos) => {
+      const row = el(`
+        <li class="ranking-item">
+          <span class="ranking-num">${pos + 1}</span>
+          <span class="ranking-text">${esc(opts[optIdx])}</span>
+          <span class="ranking-moves">
+            <button type="button" class="ranking-move up" aria-label="${t('vote.ranking.up')}" ${pos === 0 ? 'disabled' : ''}>▲</button>
+            <button type="button" class="ranking-move down" aria-label="${t('vote.ranking.down')}" ${pos === order.length - 1 ? 'disabled' : ''}>▼</button>
+          </span>
+        </li>`);
+      row.querySelector('.up').addEventListener('click', () => { if (pos > 0) { [order[pos - 1], order[pos]] = [order[pos], order[pos - 1]]; render(); } });
+      row.querySelector('.down').addEventListener('click', () => { if (pos < order.length - 1) { [order[pos + 1], order[pos]] = [order[pos], order[pos + 1]]; render(); } });
+      list.appendChild(row);
+    });
+  }
+  render();
+
+  const submitBtn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg" style="margin-top:1rem;">${t('vote.ranking.submit')}</button>`);
+  const note = el('<div></div>');
+  submitBtn.addEventListener('click', () => {
+    submit(order, () => {
+      markVoted(slide.id, order);
+      note.innerHTML = '';
+      note.appendChild(submittedNote(t('vote.ranking.recorded')));
+      showResults();
+    });
+  });
+
+  form.appendChild(el(`<div class="ranking-hint">${t('vote.ranking.hint')}</div>`));
+  form.appendChild(list);
+  form.appendChild(submitBtn);
+  form.appendChild(note);
+  if (Array.isArray(prev)) { note.appendChild(submittedNote(t('vote.ranking.recorded'))); showResults(); }
 }
 
 // --- Q&A --------------------------------------------------------------------------------
