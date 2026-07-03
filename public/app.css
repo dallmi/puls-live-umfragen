@@ -63,9 +63,6 @@ main { flex: 1; width: 100%; }
 .hero h1 b { font-weight: 600; }
 .hero p { font-size: 0.95rem; color: var(--grey-4); margin-top: 0.5rem; max-width: 42rem; }
 
-.landing-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; margin-bottom: 2rem; }
-@media (max-width: 760px) { .landing-grid { grid-template-columns: 1fr; } }
-
 /* Mockup D — Beitreten dominant, Erstellen als Zweitweg */
 .join-primary { max-width: 460px; margin: 0 auto 1.25rem; }
 .join-card .code-input { font-size: 1.9rem; }

@@ -20,9 +20,7 @@ const DICT = {
   'landing.join.submit': { de: 'Teilnehmen', en: 'Join' },
   'landing.join.errInvalid': { de: 'Bitte einen sechsstelligen Code eingeben.', en: 'Please enter a six-digit code.' },
   'landing.join.errNotFound': { de: 'Kein aktives Event mit diesem Code gefunden.', en: 'No active event found with this code.' },
-  'landing.create.title': { de: 'Neue Präsentation erstellen', en: 'Create a new presentation' },
   'landing.create.titlePlaceholder': { de: 'z. B. Team-Meeting Juli', en: 'e.g. Team meeting July' },
-  'landing.create.help': { de: 'Sie erhalten einen Moderationslink und einen sechsstelligen Code für das Publikum.', en: "You'll get a presenter link and a six-digit code for your audience." },
   'landing.create.submit': { de: 'Erstellen', en: 'Create' },
   'landing.create.errFailed': { de: 'Erstellen fehlgeschlagen — läuft der Server noch?', en: 'Creation failed — is the server still running?' },
   'landing.mine.title': { de: 'Meine Präsentationen', en: 'My presentations' },
@@ -304,7 +302,7 @@ function t(key, vars) {
   }
   if (vars) {
     Object.keys(vars).forEach((k) => {
-      val = val.replace(new RegExp(`{{${k}}}`, 'g'), String(vars[k]));
+      val = val.replace(new RegExp(`{{${k}}}`, 'g'), () => String(vars[k]));
     });
   }
   return val;
