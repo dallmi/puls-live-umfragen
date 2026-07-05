@@ -151,7 +151,35 @@ main { flex: 1; width: 100%; }
 .present-topbar .join-line b { color: var(--black); font-variant-numeric: tabular-nums; letter-spacing: 0.05em; }
 .present-topbar .audience-count { font-size: 0.85rem; color: var(--grey-4); font-variant-numeric: tabular-nums; }
 
+/* Mockup C — Beitritts-Bühne (Startzustand) */
+.present-join-stage {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 0.75rem; padding: 2rem; text-align: center;
+}
+.present-join-stage[hidden] { display: none; }
+.pjs-heading { font-size: clamp(1rem, 2vw, 1.5rem); color: var(--grey-5); }
+.pjs-code { font-size: clamp(3.5rem, 12vw, 9rem); font-weight: 300; color: var(--black); font-variant-numeric: tabular-nums; letter-spacing: 0.06em; line-height: 1.05; }
+.pjs-at { font-size: clamp(1rem, 2vw, 1.5rem); color: var(--grey-5); }
+.pjs-at b { color: var(--black); }
+.pjs-qr { margin: 0.5rem 0; }
+.pjs-qr svg { width: clamp(180px, 22vw, 260px); height: clamp(180px, 22vw, 260px); display: block; }
+.pjs-counter { font-size: clamp(0.9rem, 1.6vw, 1.2rem); color: var(--grey-4); font-variant-numeric: tabular-nums; }
+#btnStartSlides { margin-top: 0.75rem; }
+
+/* Dauer-Join-Leiste in der Topbar */
+.present-join-bar {
+  display: inline-flex; align-items: center; gap: 0.6rem;
+  background: none; border: 1px solid var(--grey-1); border-radius: var(--radius);
+  padding: 0.25rem 0.6rem; cursor: pointer; color: var(--grey-5); font: inherit;
+}
+.present-join-bar[hidden] { display: none; }
+.present-join-bar:hover { border-color: var(--grey-3); }
+.pjb-label { font-size: 0.8rem; color: var(--grey-4); }
+.pjb-code { font-size: 1.15rem; color: var(--black); font-variant-numeric: tabular-nums; letter-spacing: 0.05em; }
+.pjb-qr svg { display: block; width: 44px; height: 44px; }
+
 .present-body { flex: 1; overflow: auto; padding: 2.5rem 4rem; display: flex; flex-direction: column; }
+.present-body[hidden] { display: none; }
 @media (max-width: 760px) { .present-body { padding: 1.5rem; } }
 .present-question { font-size: 2.4rem; font-weight: 300; color: var(--black); line-height: 1.2; margin-bottom: 2rem; }
 .present-results { flex: 1; }
@@ -161,6 +189,7 @@ main { flex: 1; width: 100%; }
   display: flex; justify-content: space-between; align-items: center; gap: 1rem;
   padding: 0.7rem 2rem; border-top: 1px solid var(--grey-1); background: var(--bg);
 }
+.present-footer[hidden] { display: none; }
 .present-footer .nav { display: flex; gap: 0.5rem; align-items: center; }
 .present-footer .pos { font-size: 0.85rem; color: var(--grey-4); font-variant-numeric: tabular-nums; min-width: 4.5em; text-align: center; }
 .present-footer .hints { font-size: 0.72rem; color: var(--grey-4); }

@@ -219,29 +219,45 @@
     <div class="moderation-list" id="moderationList"></div>
   </div>
   <div class="present-topbar">
-    <div style="display:flex; align-items:center;">
+    <div style="display:flex; align-items:center; gap:0.75rem;">
       <img id="presentBrandLogo" class="brand-logo" hidden alt="">
-      <div class="join-line" id="presentJoinLine"></div>
+      <button type="button" class="present-join-bar" id="presentJoinBar" hidden>
+        <span class="pjb-label" id="pjbLabel"></span>
+        <span class="pjb-code" id="pjbCode"></span>
+        <span class="pjb-qr" id="pjbQr"></span>
+      </button>
     </div>
     <div style="display:flex; align-items:center; gap:1.25rem;">
       <span class="audience-count" id="audienceCount"></span>
       <button class="ds-btn" id="btnExitPresent" data-i18n="presenter.present.exit">Beenden (Esc)</button>
     </div>
   </div>
-  <div class="present-body">
+
+  <div class="present-join-stage" id="presentJoinStage" hidden>
+    <div class="pjs-heading" id="pjsHeading"></div>
+    <div class="pjs-code" id="pjsCode"></div>
+    <div class="pjs-at" id="pjsAt"></div>
+    <div class="pjs-qr" id="pjsQr"></div>
+    <div class="pjs-counter" id="pjsCounter"></div>
+    <button class="ds-btn ds-btn-primary ds-btn-lg" id="btnStartSlides"></button>
+  </div>
+
+  <div class="present-body" id="presentBody">
+    <div class="present-status" id="presentStatus"></div>
     <div class="present-question" id="presentQuestion"></div>
     <div class="present-results" id="presentResults"></div>
   </div>
-  <div class="present-footer">
-    <div class="qr-small" id="presentQr"></div>
+
+  <div class="present-footer" id="presentFooter">
+    <div class="hints" id="presentHints"></div>
     <div class="nav">
       <button class="ds-btn" id="btnPrev" data-i18n="presenter.present.prev">← Zurück</button>
       <span class="pos" id="presentPos"></span>
       <button class="ds-btn" id="btnNext" data-i18n="presenter.present.next">Weiter →</button>
     </div>
-    <div style="display:flex; gap:0.5rem; align-items:center;">
-      <button class="ds-btn" id="btnToggleResults"></button>
-      <button class="ds-btn" id="btnToggleLock"></button>
+    <div class="present-toggles">
+      <button class="ds-btn present-toggle" id="btnToggleResults" aria-pressed="false"></button>
+      <button class="ds-btn present-toggle" id="btnToggleLock" aria-pressed="false"></button>
     </div>
   </div>
 </div>
@@ -270,6 +286,7 @@ if (!PRES_ID || !TOKEN) {
 let pres = null;          // Serverzustand (Admin-Sicht)
 let selectedIdx = 0;      // im Editor ausgewählte Folie
 let presenting = false;
+let joinStage = false;
 let stream = null;
 let lastSnapshot = null;
 let publicBase = location.origin; // Adresse, unter der das Publikum beitritt
@@ -718,24 +735,38 @@ $('btnToggleResults').addEventListener('click', () =>
   setState({ resultsHidden: !(lastSnapshot && lastSnapshot.resultsHidden) }));
 $('btnToggleLock').addEventListener('click', () =>
   setState({ votingLocked: !(lastSnapshot && lastSnapshot.votingLocked) }));
+$('btnStartSlides').addEventListener('click', showSlides);
+$('presentJoinBar').addEventListener('click', showJoinStage);
 
 async function enterPresent() {
   await saveNow();
   presenting = true;
+  joinStage = true;
   $('presentMode').hidden = false;
   document.body.style.overflow = 'hidden';
   const joinUrl = publicBase.replace(/^https?:\/\//, '');
-  $('presentJoinLine').innerHTML =
-    `${t('presenter.access.joinAt')} <b>${esc(joinUrl)}</b> — Code <b>${formatCode(pres.code)}</b>`;
-  renderQR($('presentQr'), `${publicBase}/${pres.code}`, 64);
+  $('pjsAt').innerHTML = `${esc(t('presenter.access.joinAt'))} <b>${esc(joinUrl)}</b>`;
+  renderQR($('pjsQr'), `${publicBase}/${pres.code}`, 240);
+  renderQR($('pjbQr'), `${publicBase}/${pres.code}`, 44);
   lastReactionTs = Date.now(); // beim Start keine gepufferten Alt-Reaktionen abfeuern
   $('presentReactions').innerHTML = '';
   applyBrand(pres.brand, PRES_ID, [$('presentBrandLogo')]);
+  applyStagePresence();
   if (lastSnapshot) onSnapshot(lastSnapshot);
   if (document.documentElement.requestFullscreen) {
     document.documentElement.requestFullscreen().catch(() => {});
   }
 }
+
+function applyStagePresence() {
+  $('presentJoinStage').hidden = !joinStage;
+  $('presentBody').hidden = joinStage;
+  $('presentFooter').hidden = joinStage;
+  $('presentJoinBar').hidden = joinStage; // Leiste nur während der Folien
+}
+
+function showSlides() { joinStage = false; applyStagePresence(); }
+function showJoinStage() { joinStage = true; applyStagePresence(); }
 
 function exitPresent() {
   presenting = false;
@@ -761,8 +792,22 @@ function onSnapshot(snap) {
   lastSnapshot = snap;
   scheduleResultsRefresh(); // Ergebnis-Panel im Editor aktuell halten
   if (!presenting) return;
+  renderPresent(snap);
+}
+
+function renderPresent(snap) {
   lastReactionTs = animateReactions($('presentReactions'), snap.reactions, lastReactionTs);
   applyBrand(snap.brand, PRES_ID, [$('presentBrandLogo')]);
+
+  // Beitritts-Bühne + Dauer-Leiste
+  $('pjsHeading').textContent = t('presenter.join.heading');
+  $('pjsCode').textContent = formatCode(pres.code);
+  $('pjsCounter').textContent = t('presenter.join.counter', { n: snap.audience });
+  $('btnStartSlides').textContent = t('presenter.join.start');
+  $('pjbLabel').textContent = t('presenter.join.barLabel');
+  $('pjbCode').textContent = formatCode(pres.code);
+
+  // Fußleiste / Navigation
   $('presentPos').textContent = snap.slideCount ? `${snap.activeIndex + 1} / ${snap.slideCount}` : '0 / 0';
   $('audienceCount').textContent = t('presenter.present.audience', { n: snap.audience });
   $('btnToggleResults').textContent = snap.resultsHidden ? t('presenter.present.showResults') : t('presenter.present.hideResults');
@@ -774,10 +819,10 @@ function onSnapshot(snap) {
   if (!snap.slide) {
     q.textContent = t('presenter.present.noSlides');
     $('presentResults').innerHTML = '';
+    refreshModeration(snap);
     return;
   }
   q.textContent = snap.slide.question || typeMeta(snap.slide.type).label || '';
-  // Quiz: richtige Antwort kennt nur der (authentifizierte) Moderator aus seinen Admin-Daten.
   let correctIndex = -1;
   if (snap.slide.type === 'quiz' && pres) {
     const full = pres.slides.find((s) => s.id === snap.slide.id);
@@ -833,9 +878,16 @@ async function moderate(itemId, action) {
 
 document.addEventListener('keydown', (e) => {
   if (!presenting) return;
+  if (e.key === 'Escape') { exitPresent(); return; }
+  if (joinStage) {
+    if (e.key === 'ArrowRight' || e.key === 'PageDown') showSlides();
+    return;
+  }
   if (e.key === 'ArrowRight' || e.key === 'PageDown') navigate(1);
-  if (e.key === 'ArrowLeft' || e.key === 'PageUp') navigate(-1);
-  if (e.key === 'Escape') exitPresent();
+  if (e.key === 'ArrowLeft' || e.key === 'PageUp') {
+    if (lastSnapshot && lastSnapshot.activeIndex === 0) showJoinStage();
+    else navigate(-1);
+  }
 });
 
 // ---------------------------------------------------------------------------
