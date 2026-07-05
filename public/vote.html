@@ -133,9 +133,31 @@ function onSnapshot(s) {
     buildSlide();
   }
   updateResults();
+  repaintMorph(snap);
   updateMeta();
   updateReactionBar();
   applyBrand(snap.brand, presId, [document.getElementById('brandLogo')]);
+}
+
+// Balken-Morph (choice/scale) auf JEDEM Snapshot neu zeichnen — nicht nur beim
+// eigenen Tap. So bleiben die Balken live (andere Stimmen kommen rein) und
+// respektieren ein Live-Umschalten von „Ergebnisse ausblenden" durch die Moderation.
+// Baut das Formular NICHT neu, malt nur die bereits vorhandenen Buttons um.
+function repaintMorph(snap) {
+  const slide = curSlide();
+  if (!slide) return;
+  if (!((slide.type === 'choice' && !slide.multiple) || slide.type === 'scale')) return;
+
+  const prev = votedStore()[slide.id];
+  if (prev === undefined) return; // noch nicht abgestimmt → nichts zu übermalen
+
+  if (slide.type === 'choice') {
+    const box = document.querySelector('#voteForm .vote-options');
+    if (box) paintChoiceResults(box, slide, Array.isArray(prev) ? prev : []);
+  } else if (slide.type === 'scale') {
+    const picker = document.querySelector('#voteForm .scale-picker');
+    if (picker && typeof prev === 'number') paintScaleResults(picker, slide, prev);
+  }
 }
 
 function updateMeta() {
@@ -348,7 +370,15 @@ function paintChoiceResults(box, slide, ownIndices) {
   const results = curResults();
   const btns = [...box.querySelectorAll('.vote-option')];
   if (snap.resultsHidden || !results || results.kind !== 'choice') {
-    btns.forEach((b, i) => b.classList.toggle('own', ownIndices.includes(i)));
+    // Balken evtl. aus einem früheren Snapshot noch gesetzt (z. B. bevor die
+    // Moderation „Ergebnisse ausblenden" live umgeschaltet hat) — zurücksetzen.
+    btns.forEach((b, i) => {
+      b.classList.remove('as-bar', 'leader');
+      b.classList.toggle('own', ownIndices.includes(i));
+      b.style.removeProperty('--fill');
+      const countEl = b.querySelector('.vo-count');
+      if (countEl) countEl.textContent = '';
+    });
     return; // Ergebnis ausgeblendet: nur eigene Wahl markieren, keine Balken
   }
   const counts = results.counts || [];
@@ -525,7 +555,14 @@ function paintScaleResults(picker, slide, ownValue) {
   const results = curResults();
   const btns = [...picker.querySelectorAll('.scale-btn')];
   if (snap.resultsHidden || !results || results.kind !== 'scale') {
-    btns.forEach((b, idx) => b.classList.toggle('own', idx + slide.min === ownValue));
+    // Balken evtl. aus einem früheren Snapshot noch gesetzt — zurücksetzen.
+    btns.forEach((b, idx) => {
+      b.classList.remove('as-bar', 'leader');
+      b.classList.toggle('own', idx + slide.min === ownValue);
+      b.style.removeProperty('--fill');
+      const countEl = b.querySelector('.sb-count');
+      if (countEl) countEl.textContent = '';
+    });
     return;
   }
   // Server liefert für Skala ein Objekt { dist: { [wert]: anzahl }, ... }, nicht ein Array.
