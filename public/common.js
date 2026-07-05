@@ -233,8 +233,9 @@ function renderChoice(container, slide, results, opts) {
     const count = results.counts[i] || 0;
     const pct = total ? Math.round((count / total) * 100) : 0;
     const isLeader = count > 0 && count === max;
+    const isOwn = Array.isArray(opts.own) ? opts.own.includes(i) : opts.own === i;
     const row = el(`
-      <div class="bar-row">
+      <div class="bar-row${isOwn ? ' own' : ''}">
         <div class="bar-label">${esc(option)}</div>
         <div class="bar-track">
           <div class="bar-fill${isLeader ? ' leader' : ''}" style="width:0%"></div>
@@ -256,14 +257,15 @@ function renderPoints(container, slide, results, opts) {
   const grand = totals.reduce((a, b) => a + b, 0);
   const max = Math.max(...totals, 1);
   // nach Punkten absteigend sortieren, aber Option-Label über den Index behalten
-  const order = (slide.options || []).map((option, i) => ({ option, pts: totals[i] || 0 }))
+  const order = (slide.options || []).map((option, i) => ({ option, pts: totals[i] || 0, i }))
     .sort((a, b) => b.pts - a.pts);
   const chart = el(`<div class="barchart" role="img" aria-label="${t('results.points.aria')}"></div>`);
-  order.forEach(({ option, pts }) => {
+  order.forEach(({ option, pts, i }) => {
     const isLeader = pts > 0 && pts === max;
     const pct = grand ? Math.round((pts / grand) * 100) : 0;
+    const isOwn = Array.isArray(opts.own) ? opts.own.includes(i) : opts.own === i;
     const row = el(`
-      <div class="bar-row">
+      <div class="bar-row${isOwn ? ' own' : ''}">
         <div class="bar-label">${esc(option)}</div>
         <div class="bar-track">
           <div class="bar-fill${isLeader ? ' leader' : ''}" style="width:0%"></div>
@@ -284,8 +286,9 @@ function renderRanking(container, slide, results, opts) {
   (results.items || []).forEach((it, pos) => {
     const label = (slide.options || [])[it.index] || '';
     const avg = results.voters ? it.avgRank.toFixed(2) : '–';
+    const isOwn = Array.isArray(opts.own) ? opts.own.includes(it.index) : opts.own === it.index;
     const row = el(`
-      <li class="ranking-row${pos === 0 && results.voters ? ' leader' : ''}">
+      <li class="ranking-row${pos === 0 && results.voters ? ' leader' : ''}${isOwn ? ' own' : ''}">
         <span class="ranking-pos">${pos + 1}</span>
         <span class="ranking-label">${esc(label)}</span>
         <span class="ranking-avg" title="${t('results.ranking.avgTitle')}">Ø ${avg}</span>
@@ -395,8 +398,9 @@ function renderScale(container, slide, results, opts) {
   for (let v = slide.min; v <= slide.max; v++) {
     const n = results.dist[v] || 0;
     const h = (n / maxN) * 100;
+    const isOwn = Array.isArray(opts.own) ? opts.own.includes(v) : opts.own === v;
     const col = el(`
-      <div class="scale-col">
+      <div class="scale-col${isOwn ? ' own' : ''}">
         <div class="scale-col-count">${n || ''}</div>
         <div class="scale-col-track"><div class="scale-col-fill" style="height:0%"></div></div>
         <div class="scale-col-label">${v}</div>

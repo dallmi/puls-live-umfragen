@@ -412,6 +412,12 @@ main { flex: 1; width: 100%; }
 .bar-fill.leader { background: var(--primary); }
 .bar-fill.correct { background: var(--success); } /* Quiz: richtige Antwort grün */
 .bar-row.correct-row .bar-label { color: var(--success); font-weight: 600; }
+/* Mockup B (Task 7) — eigene Wahl im Ergebnis-Board markieren (opts.own → render*) */
+.bar-row.own .bar-label { font-weight: 700; }
+.bar-row.own .bar-label::after { content: " ·"; color: var(--primary); }
+.ranking-row.own .ranking-label { font-weight: 700; }
+.ranking-row.own .ranking-label::after { content: " ·"; color: var(--primary); }
+.scale-col.own .scale-col-label { font-weight: 700; color: var(--primary); }
 .bar-value { font-size: 0.95rem; font-weight: 600; color: var(--black); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .bar-pct { font-weight: 400; color: var(--grey-4); font-size: 0.78rem; margin-left: 0.4em; }
 

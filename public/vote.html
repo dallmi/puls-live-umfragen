@@ -160,7 +160,7 @@ function repaintMorph(snap) {
   } else if (slide.type === 'points' || slide.type === 'ranking') {
     // Nur nachmalen, wenn gerade das Board (nicht die Eingabe nach „Ändern") gezeigt wird.
     const holder = document.querySelector('#voteForm .morph-board');
-    if (holder) paintMorphBoard(holder, slide, null);
+    if (holder) paintMorphBoard(holder, slide, slide.type === 'points' ? pointsOwn(prev) : rankingOwn(prev));
   }
 }
 
@@ -357,6 +357,15 @@ function voteBar({ label, onConfirm }) {
 // Teilnehmende noch abstimmen, und verschwindet sofort, wenn die Moderation „Ergebnisse
 // ausblenden" umschaltet — ohne das schon live aktualisierende #resultsBlock zu duplizieren
 // (das bleibt hier ausgeblendet, weil morphBoard showResults()/resultsVisible nicht anfasst).
+// Eigene Wahl (Task 7 / opts.own) aus dem gespeicherten Antwortwert ableiten:
+// Punkte → Indizes mit Einsatz > 0; Ranking → die selbst auf Platz 1 gesetzte Option.
+function pointsOwn(pts) {
+  return Array.isArray(pts) ? pts.reduce((acc, v, i) => { if (v > 0) acc.push(i); return acc; }, []) : null;
+}
+function rankingOwn(order) {
+  return Array.isArray(order) && order.length ? order[0] : null;
+}
+
 function paintMorphBoard(holder, slide, own) {
   holder.innerHTML = '';
   if (snap.resultsHidden || !curResults()) {
@@ -485,34 +494,29 @@ function buildQuiz(form, slide) {
       btn.addEventListener('click', () => {
         chosen = i;
         box.querySelectorAll('.vote-option').forEach((b, j) => b.classList.toggle('selected', j === i));
-        submitBtn.disabled = false;
+        bar.setEnabled(true);
       });
     }
     box.appendChild(btn);
   });
   form.appendChild(box);
+  form.appendChild(el(`<div class="ranking-hint">${esc(t('vote.quiz.once'))}</div>`));
 
-  const submitBtn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg" style="margin-top:1rem;" ${chosen != null ? '' : 'disabled'}>${t('vote.quiz.submit')}</button>`);
   const note = el('<div></div>');
-  submitBtn.addEventListener('click', () => {
+  const bar = voteBar({ label: t('vote.quiz.submit'), onConfirm: () => {
     if (chosen == null) return;
     submit(chosen, (resp) => {
       const info = (resp && resp.quiz) || { correct: false, points: 0 };
       markVoted(slide.id, { choice: chosen, correct: info.correct, points: info.points });
-      submitBtn.hidden = true;
-      box.querySelectorAll('.vote-option').forEach((b) => { b.disabled = true; });
-      note.innerHTML = '';
-      note.appendChild(quizFeedback(info));
-      showResults(slide.id); // Verteilung erst sichtbar, wenn der Moderator auflöst
-    }, (e) => {
-      if (e.message === 'already_answered') { submitBtn.hidden = true; note.innerHTML = ''; note.appendChild(submittedNote(t('vote.quiz.alreadyAnswered'))); }
-    });
-  });
-  form.appendChild(submitBtn);
+      const b = document.getElementById('voteConfirmBar'); if (b) b.remove();
+      box.querySelectorAll('.vote-option').forEach((x) => { x.disabled = true; });
+      note.innerHTML = ''; note.appendChild(quizFeedback(info)); showResults(slide.id);
+    }, (e) => { if (e.message === 'already_answered') { const b=document.getElementById('voteConfirmBar'); if(b) b.remove(); note.innerHTML=''; note.appendChild(submittedNote(t('vote.quiz.alreadyAnswered'))); } });
+  }});
   form.appendChild(note);
 
   if (answered) {
-    submitBtn.hidden = true;
+    const b = document.getElementById('voteConfirmBar'); if (b) b.remove();
     note.appendChild(quizFeedback(prev));
     showResults(slide.id);
   }
@@ -699,10 +703,10 @@ function buildPoints(form, slide, forceEdit) {
   form.appendChild(budget);
   const bar = voteBar({ label: t('vote.points.submit'), onConfirm: () => {
     if (used() <= 0) return;
-    submit(pts, () => { markVoted(slide.id, pts); morphBoard(form, slide, null); });
+    submit(pts, () => { markVoted(slide.id, pts); morphBoard(form, slide, pointsOwn(pts)); });
   }});
   refresh();
-  if (!forceEdit && Array.isArray(prev)) morphBoard(form, slide, null);
+  if (!forceEdit && Array.isArray(prev)) morphBoard(form, slide, pointsOwn(prev));
 }
 
 // --- Ranking (Reihenfolge per Auf/Ab) ----------------------------------------
@@ -766,10 +770,10 @@ function buildRanking(form, slide, forceEdit) {
   render();
   form.appendChild(list);
   const bar = voteBar({ label: t('vote.ranking.submit'), onConfirm: () => {
-    submit(order, () => { markVoted(slide.id, order); morphBoard(form, slide, null); });
+    submit(order, () => { markVoted(slide.id, order); morphBoard(form, slide, rankingOwn(order)); });
   }});
   bar.setEnabled(true);
-  if (!forceEdit && Array.isArray(prev)) morphBoard(form, slide, null);
+  if (!forceEdit && Array.isArray(prev)) morphBoard(form, slide, rankingOwn(prev));
 }
 
 // --- Q&A --------------------------------------------------------------------------------
@@ -779,14 +783,14 @@ function buildQa(form, slide) {
       <textarea rows="2" maxlength="500" placeholder="${t('vote.qa.placeholder')}"></textarea>
     </div>`);
   const ta = field.querySelector('textarea');
-  const btn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg">${t('vote.qa.submit')}</button>`);
   const note = el('<div></div>');
 
-  btn.addEventListener('click', () => {
+  function sendQa() {
     const text = ta.value.trim();
     if (!text) return;
     submit(text, () => {
       ta.value = '';
+      bar.setEnabled(false);
       note.innerHTML = '';
       note.appendChild(submittedNote(slide.moderated ? t('vote.qa.pending') : t('vote.qa.sent')));
     }, (e) => {
@@ -795,9 +799,12 @@ function buildQa(form, slide) {
         note.appendChild(submittedNote(t('vote.qa.limitReached')));
       }
     });
-  });
+  }
+
+  const bar = voteBar({ label: t('common.send'), onConfirm: sendQa });
+  ta.addEventListener('input', () => bar.setEnabled(ta.value.trim().length > 0));
+  bar.setEnabled(false);
   form.appendChild(field);
-  form.appendChild(btn);
   form.appendChild(note);
   showResults(); // Fragenliste ist bei Q&A immer sichtbar
 }
