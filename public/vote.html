@@ -146,7 +146,7 @@ function onSnapshot(s) {
 function repaintMorph(snap) {
   const slide = curSlide();
   if (!slide) return;
-  if (!((slide.type === 'choice' && !slide.multiple) || slide.type === 'scale')) return;
+  if (!(slide.type === 'choice' || slide.type === 'scale')) return;
 
   const prev = votedStore()[slide.id];
   if (prev === undefined) return; // noch nicht abgestimmt → nichts zu übermalen
@@ -544,6 +544,7 @@ function buildOpen(form, slide) {
     if (!text) return;
     submit(text, () => {
       ta.value = '';
+      bar.setEnabled(false);
       note.innerHTML = '';
       note.appendChild(submittedNote(t('vote.open.sent')));
       showResults(slide.id);
