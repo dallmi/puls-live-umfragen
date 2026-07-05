@@ -826,6 +826,7 @@ function renderPresent(snap) {
   if (rHidden) st.appendChild(el(`<span class="present-chip">${esc(t('presenter.present.statusResultsHidden'))}</span>`));
   $('btnPrev').disabled = snap.activeIndex <= 0;
   $('btnNext').disabled = snap.activeIndex >= snap.slideCount - 1;
+  $('presentHints').textContent = t('presenter.present.hints');
 
   const q = $('presentQuestion');
   if (!snap.slide) {
@@ -917,6 +918,7 @@ function refreshLanguage() {
     renderSlideList();
     renderSlideEditor();
   }
+  if (presenting && lastSnapshot) renderPresent(lastSnapshot);
 }
 
 load().catch((err) => {
