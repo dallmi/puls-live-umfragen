@@ -169,6 +169,9 @@ function buildSlide() {
   resultsVisible = false;
   root.innerHTML = '';
 
+  const oldBar = document.getElementById('voteConfirmBar');
+  if (oldBar) oldBar.remove();
+
   // Namensabfrage, falls die Moderation „Namen erfassen" aktiviert hat und noch keiner gesetzt ist
   if (snap.collectNames && !storedName()) {
     buildNameGate();
@@ -195,25 +198,21 @@ function buildSlide() {
     root.appendChild(el(`<div class="vote-question">${esc(questionText)}</div>`));
   }
 
-  if (snap.votingLocked && slide.type !== 'info') {
-    root.appendChild(el(`<div class="vote-locked">${t('vote.locked')}</div>`));
-  }
-
   const form = el('<div id="voteForm"></div>');
   root.appendChild(form);
 
-  if (!snap.votingLocked) {
-    switch (slide.type) {
-      case 'choice':    buildChoice(form, slide); break;
-      case 'wordcloud': buildWordcloud(form, slide); break;
-      case 'open':      buildOpen(form, slide); break;
-      case 'scale':     buildScale(form, slide); break;
-      case 'points':    buildPoints(form, slide); break;
-      case 'ranking':   buildRanking(form, slide); break;
-      case 'quiz':      buildQuiz(form, slide); break;
-      case 'qa':        buildQa(form, slide); break;
-    }
+  switch (slide.type) {
+    case 'choice':    buildChoice(form, slide); break;
+    case 'wordcloud': buildWordcloud(form, slide); break;
+    case 'open':      buildOpen(form, slide); break;
+    case 'scale':     buildScale(form, slide); break;
+    case 'points':    buildPoints(form, slide); break;
+    case 'ranking':   buildRanking(form, slide); break;
+    case 'quiz':      buildQuiz(form, slide); break;
+    case 'qa':        buildQa(form, slide); break;
   }
+
+  if (snap.votingLocked && slide.type !== 'info') applyLock(form);
 
   if (slide.type === 'info') {
     if (slide.question) form.appendChild(el(`<div class="vote-question">${esc(slide.question)}</div>`));
@@ -297,6 +296,32 @@ async function submit(value, onOk, onErr) {
   } catch (e) {
     onErr && onErr(e);
   }
+}
+
+function applyLock(form) {
+  form.classList.add('is-locked');
+  form.querySelectorAll('button, input, textarea, [role="slider"], .rank-handle').forEach((e) => {
+    e.setAttribute('disabled', '');
+    e.classList.add('locked-el');
+    e.style.pointerEvents = 'none';
+  });
+  // feste Bestätigen-Leiste, falls vorhanden, ebenfalls sperren
+  const bar = document.getElementById('voteConfirmBar');
+  if (bar) bar.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+  if (!form.querySelector('.vote-lock-chip')) {
+    form.insertBefore(el(`<div class="vote-lock-chip">${esc(t('vote.locked.chip'))}</div>`), form.firstChild);
+  }
+}
+
+function voteBar({ label, onConfirm }) {
+  const barEl = el(`
+    <div class="vote-confirm-bar" id="voteConfirmBar">
+      <button class="ds-btn ds-btn-primary ds-btn-lg" id="voteConfirmBtn" disabled>${esc(label)}</button>
+    </div>`);
+  const btn = barEl.querySelector('#voteConfirmBtn');
+  btn.addEventListener('click', () => { if (!btn.disabled) onConfirm(); });
+  document.querySelector('.container, main, body').appendChild(barEl);
+  return { el: barEl, setEnabled: (b) => { btn.disabled = !b; } };
 }
 
 // --- Multiple Choice ---------------------------------------------------------

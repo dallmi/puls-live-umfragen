@@ -557,3 +557,19 @@ main { flex: 1; width: 100%; }
 }
 .secure-dialog { max-width: 460px; width: 100%; box-shadow: var(--shadow-hover); }
 .secure-dialog-close { margin-top: 1rem; }
+
+/* Mockup B — feste Bestätigen-Leiste + Sperr-Zustand */
+.vote-confirm-bar {
+  position: sticky; bottom: 0; z-index: 20;
+  display: flex; gap: 0.5rem; padding: 0.6rem 0;
+  background: var(--bg); border-top: 1px solid var(--grey-1);
+  margin-top: 1rem;
+}
+.vote-confirm-bar .ds-btn { flex: 1; min-height: 48px; }
+.vote-lock-chip {
+  display: inline-block; margin-bottom: 0.75rem; padding: 0.3rem 0.8rem;
+  border-radius: var(--radius); background: var(--warning-bg); color: var(--warning);
+  border: 1px solid var(--warning); font-size: 0.85rem; font-weight: 600;
+}
+.is-locked { opacity: 0.7; }
+.is-locked .locked-el { cursor: not-allowed; }
