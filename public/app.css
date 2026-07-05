@@ -598,3 +598,10 @@ main { flex: 1; width: 100%; }
 .points-budget .pb-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s ease; }
 .points-budget .pb-text { font-size: 0.85rem; color: var(--grey-5); margin-top: 0.3rem; font-variant-numeric: tabular-nums; }
 .points-budget.none-left .pb-text { color: var(--primary); font-weight: 600; }
+
+/* Mockup B — Ranking-Drag (V3) */
+.ranking-item { align-items: center; }
+.rank-handle { flex-shrink: 0; width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center;
+  font-size: 1.2rem; color: var(--grey-4); cursor: grab; touch-action: none; user-select: none; }
+.ranking-item.dragging { background: var(--surface-alt); }
+.ranking-move { min-width: 44px; min-height: 22px; }

@@ -379,7 +379,7 @@ function morphBoard(form, slide, own) {
   change.addEventListener('click', () => {
     form.innerHTML = '';
     if (slide.type === 'points') buildPoints(form, slide, true);
-    else if (slide.type === 'ranking') buildRanking(form, slide);
+    else if (slide.type === 'ranking') buildRanking(form, slide, true);
   });
   form.appendChild(change);
 }
@@ -706,48 +706,70 @@ function buildPoints(form, slide, forceEdit) {
 }
 
 // --- Ranking (Reihenfolge per Auf/Ab) ----------------------------------------
-function buildRanking(form, slide) {
+// forceEdit: von morphBoards „Ändern"-Button gesetzt, damit die Eingabe wirklich
+// erscheint statt wegen des vorhandenen votedStore-Eintrags sofort wieder ins
+// Board zu morphen (siehe buildPoints/Bugfix-Hinweis im Report).
+function buildRanking(form, slide, forceEdit) {
   const opts = slide.options || [];
   const prev = votedStore()[slide.id];
-  // order = Array von Options-Indizes in gewählter Reihenfolge (erst = bester)
   let order = Array.isArray(prev) && prev.length === opts.length ? [...prev] : opts.map((_, i) => i);
 
+  form.appendChild(el(`<div class="ranking-hint">${esc(t('vote.ranking.dragHint'))}</div>`));
   const list = el('<ol class="ranking-input"></ol>');
+
   function render() {
     list.innerHTML = '';
     order.forEach((optIdx, pos) => {
       const row = el(`
-        <li class="ranking-item">
+        <li class="ranking-item" draggable="false">
+          <span class="rank-handle" role="button" aria-label="${esc(t('vote.ranking.dragHint'))}">⠿</span>
           <span class="ranking-num">${pos + 1}</span>
           <span class="ranking-text">${esc(opts[optIdx])}</span>
           <span class="ranking-moves">
-            <button type="button" class="ranking-move up" aria-label="${t('vote.ranking.up')}" ${pos === 0 ? 'disabled' : ''}>▲</button>
-            <button type="button" class="ranking-move down" aria-label="${t('vote.ranking.down')}" ${pos === order.length - 1 ? 'disabled' : ''}>▼</button>
+            <button type="button" class="ranking-move up" aria-label="${esc(t('vote.ranking.up'))}" ${pos === 0 ? 'disabled' : ''}>▲</button>
+            <button type="button" class="ranking-move down" aria-label="${esc(t('vote.ranking.down'))}" ${pos === order.length - 1 ? 'disabled' : ''}>▼</button>
           </span>
         </li>`);
       row.querySelector('.up').addEventListener('click', () => { if (pos > 0) { [order[pos - 1], order[pos]] = [order[pos], order[pos - 1]]; render(); } });
       row.querySelector('.down').addEventListener('click', () => { if (pos < order.length - 1) { [order[pos + 1], order[pos]] = [order[pos], order[pos + 1]]; render(); } });
+      attachDrag(row, pos);
       list.appendChild(row);
     });
   }
-  render();
 
-  const submitBtn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg" style="margin-top:1rem;">${t('vote.ranking.submit')}</button>`);
-  const note = el('<div></div>');
-  submitBtn.addEventListener('click', () => {
-    submit(order, () => {
-      markVoted(slide.id, order);
-      note.innerHTML = '';
-      note.appendChild(submittedNote(t('vote.ranking.recorded')));
-      showResults(slide.id);
+  function attachDrag(row, pos) {
+    const handle = row.querySelector('.rank-handle');
+    handle.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const startY = e.clientY;
+      const rowH = row.getBoundingClientRect().height + 6; // gap ~0.4rem
+      let curPos = pos;
+      row.classList.add('dragging');
+      function move(ev) {
+        const delta = Math.round((ev.clientY - startY) / rowH);
+        let target = Math.max(0, Math.min(order.length - 1, pos + delta));
+        if (target !== curPos) {
+          const item = order.splice(curPos, 1)[0];
+          order.splice(target, 0, item);
+          curPos = target;
+          render();
+          // Nach render ist row weg; Drag über neues Handle fortsetzen wäre komplex —
+          // hier reicht Neuaufbau; der Nutzer greift ggf. neu. Handle-Release beendet.
+        }
+      }
+      function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); }
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', up);
     });
-  });
+  }
 
-  form.appendChild(el(`<div class="ranking-hint">${t('vote.ranking.hint')}</div>`));
+  render();
   form.appendChild(list);
-  form.appendChild(submitBtn);
-  form.appendChild(note);
-  if (Array.isArray(prev)) { note.appendChild(submittedNote(t('vote.ranking.recorded'))); showResults(); }
+  const bar = voteBar({ label: t('vote.ranking.submit'), onConfirm: () => {
+    submit(order, () => { markVoted(slide.id, order); morphBoard(form, slide, null); });
+  }});
+  bar.setEnabled(true);
+  if (!forceEdit && Array.isArray(prev)) morphBoard(form, slide, null);
 }
 
 // --- Q&A --------------------------------------------------------------------------------
