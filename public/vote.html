@@ -326,48 +326,43 @@ function voteBar({ label, onConfirm }) {
 
 // --- Multiple Choice ---------------------------------------------------------
 function buildChoice(form, slide) {
-  const prev = votedStore()[slide.id];
-  if (Array.isArray(prev)) selection = [...prev];
+  if (slide.multiple) return buildChoiceMulti(form, slide); // Mehrfachauswahl: Task 4
+  const prevArr = votedStore()[slide.id];
+  let chosen = Array.isArray(prevArr) && prevArr.length ? prevArr[0] : null;
 
   const box = el('<div class="vote-options"></div>');
   (slide.options || []).forEach((opt, i) => {
-    const btn = el(`
-      <button class="vote-option${slide.multiple ? ' multi' : ''}${selection.includes(i) ? ' selected' : ''}">
-        <span class="mark"></span><span>${esc(opt)}</span>
-      </button>`);
+    const btn = el(`<button class="vote-option${chosen === i ? ' selected' : ''}"><span class="mark"></span><span class="vo-label">${esc(opt)}</span><span class="vo-count"></span></button>`);
     btn.addEventListener('click', () => {
-      if (slide.multiple) {
-        selection = selection.includes(i) ? selection.filter((x) => x !== i) : [...selection, i];
-      } else {
-        selection = [i];
-      }
-      box.querySelectorAll('.vote-option').forEach((b, j) =>
-        b.classList.toggle('selected', selection.includes(j)));
-      submitBtn.disabled = selection.length === 0;
+      chosen = i;
+      box.querySelectorAll('.vote-option').forEach((b, j) => b.classList.toggle('selected', j === i));
+      submit([i], () => { markVoted(slide.id, [i]); paintChoiceResults(box, slide, [i]); });
     });
     box.appendChild(btn);
   });
   form.appendChild(box);
+  if (chosen !== null) paintChoiceResults(box, slide, [chosen]);
+}
 
-  const submitBtn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg" style="margin-top:1rem;" ${selection.length ? '' : 'disabled'}>${t('vote.choice.submit')}</button>`);
-  const note = el('<div></div>');
-  submitBtn.addEventListener('click', () => {
-    submit(selection, () => {
-      markVoted(slide.id, selection);
-      note.innerHTML = '';
-      note.appendChild(submittedNote(prevNoteText()));
-      showResults(slide.id);
-    });
+function paintChoiceResults(box, slide, ownIndices) {
+  const results = curResults();
+  const btns = [...box.querySelectorAll('.vote-option')];
+  if (snap.resultsHidden || !results || results.kind !== 'choice') {
+    btns.forEach((b, i) => b.classList.toggle('own', ownIndices.includes(i)));
+    return; // Ergebnis ausgeblendet: nur eigene Wahl markieren, keine Balken
+  }
+  const counts = results.counts || [];
+  const total = counts.reduce((a, b) => a + b, 0);
+  const max = Math.max(...counts, 1);
+  btns.forEach((b, i) => {
+    const c = counts[i] || 0;
+    const pct = total ? Math.round((c / total) * 100) : 0;
+    b.classList.add('as-bar');
+    b.classList.toggle('own', ownIndices.includes(i));
+    b.classList.toggle('leader', c > 0 && c === max);
+    b.style.setProperty('--fill', (max ? (c / max) * 100 : 0) + '%');
+    b.querySelector('.vo-count').textContent = `${c} · ${pct}%`;
   });
-  form.appendChild(submitBtn);
-  form.appendChild(note);
-  if (Array.isArray(prev)) {
-    note.appendChild(submittedNote(prevNoteText()));
-    showResults();
-  }
-  function prevNoteText() {
-    return t('vote.choice.recorded');
-  }
 }
 
 // --- Quiz --------------------------------------------------------------------
@@ -513,31 +508,38 @@ function buildScale(form, slide) {
 
   const picker = el('<div class="scale-picker"></div>');
   for (let v = slide.min; v <= slide.max; v++) {
-    const b = el(`<button class="scale-btn${chosen === v ? ' selected' : ''}">${v}</button>`);
+    const b = el(`<button class="scale-btn${chosen === v ? ' selected' : ''}"><span class="sb-num">${v}</span><span class="sb-count"></span></button>`);
     b.addEventListener('click', () => {
       chosen = v;
-      picker.querySelectorAll('.scale-btn').forEach((x, idx) =>
-        x.classList.toggle('selected', idx + slide.min === v));
-      submit(v, () => {
-        markVoted(slide.id, v);
-        note.innerHTML = '';
-        note.appendChild(submittedNote(t('vote.scale.recorded')));
-        showResults(slide.id);
-      });
+      picker.querySelectorAll('.scale-btn').forEach((x, idx) => x.classList.toggle('selected', idx + slide.min === v));
+      submit(v, () => { markVoted(slide.id, v); paintScaleResults(picker, slide, v); });
     });
     picker.appendChild(b);
   }
   form.appendChild(picker);
-  form.appendChild(el(`
-    <div class="scale-labels">
-      <span>${esc(slide.minLabel || '')}</span><span>${esc(slide.maxLabel || '')}</span>
-    </div>`));
-  const note = el('<div></div>');
-  form.appendChild(note);
-  if (chosen !== null) {
-    note.appendChild(submittedNote(t('vote.scale.recorded')));
-    showResults();
+  form.appendChild(el(`<div class="scale-labels"><span>${esc(slide.minLabel || '')}</span><span>${esc(slide.maxLabel || '')}</span></div>`));
+  if (chosen !== null) paintScaleResults(picker, slide, chosen);
+}
+
+function paintScaleResults(picker, slide, ownValue) {
+  const results = curResults();
+  const btns = [...picker.querySelectorAll('.scale-btn')];
+  if (snap.resultsHidden || !results || results.kind !== 'scale') {
+    btns.forEach((b, idx) => b.classList.toggle('own', idx + slide.min === ownValue));
+    return;
   }
+  // Server liefert für Skala ein Objekt { dist: { [wert]: anzahl }, ... }, nicht ein Array.
+  const dist = results.dist || {};
+  const max = Math.max(...Object.values(dist), 1);
+  btns.forEach((b, idx) => {
+    const v = idx + slide.min;
+    const c = dist[v] || 0;
+    b.classList.add('as-bar');
+    b.classList.toggle('own', v === ownValue);
+    b.classList.toggle('leader', c > 0 && c === max);
+    b.style.setProperty('--fill', (max ? (c / max) * 100 : 0) + '%');
+    b.querySelector('.sb-count').textContent = c ? String(c) : '';
+  });
 }
 
 // --- 100-Punkte-Verteilung ---------------------------------------------------
