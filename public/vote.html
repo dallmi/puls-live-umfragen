@@ -320,7 +320,7 @@ function voteBar({ label, onConfirm }) {
     </div>`);
   const btn = barEl.querySelector('#voteConfirmBtn');
   btn.addEventListener('click', () => { if (!btn.disabled) onConfirm(); });
-  document.querySelector('.container, main, body').appendChild(barEl);
+  (document.getElementById('root') || document.body).appendChild(barEl);
   return { el: barEl, setEnabled: (b) => { btn.disabled = !b; } };
 }
 
