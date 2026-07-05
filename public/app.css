@@ -50,7 +50,7 @@ main { flex: 1; width: 100%; }
 .field input:focus, .field textarea:focus, .field select:focus {
   outline: none; border-color: var(--primary);
 }
-.field .help { font-size: 0.7rem; color: var(--grey-4); margin-top: 0.25rem; }
+.field .help { font-size: 0.82rem; color: var(--grey-4); margin-top: 0.25rem; }
 
 .ds-btn:disabled { opacity: 0.45; cursor: not-allowed; }
 .ds-btn-lg { font-size: 0.95rem; padding: 0.65rem 1.4rem; }
@@ -306,7 +306,7 @@ main { flex: 1; width: 100%; }
 .points-remaining.none-left { color: var(--primary); font-weight: 600; }
 
 /* --- Ranking (Abstimmen: Auf/Ab-Reihenfolge) -------------------------------- */
-.ranking-hint { font-size: 0.8rem; color: var(--grey-4); margin-bottom: 0.6rem; }
+.ranking-hint { font-size: 0.85rem; color: var(--grey-4); margin-bottom: 0.6rem; }
 .ranking-input { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 0.4rem; }
 .ranking-item {
   display: flex; align-items: center; gap: 0.6rem;
@@ -340,7 +340,7 @@ main { flex: 1; width: 100%; }
 }
 .ranking-row.leader .ranking-pos { background: var(--primary); color: var(--white); }
 .ranking-label { flex: 1; font-size: 1rem; color: var(--black); word-break: break-word; }
-.ranking-avg { flex-shrink: 0; font-size: 0.8rem; color: var(--grey-4); font-variant-numeric: tabular-nums; }
+.ranking-avg { flex-shrink: 0; font-size: 0.85rem; color: var(--grey-4); font-variant-numeric: tabular-nums; }
 
 .vote-submitted {
   border-left: 3px solid var(--success); background: var(--success-bg);
@@ -392,7 +392,7 @@ main { flex: 1; width: 100%; }
 
 .vote-results-block { margin-top: 2rem; padding-top: 1.25rem; border-top: 1px solid var(--grey-1); }
 .vote-results-block h3 { font-size: 0.85rem; font-weight: 600; color: var(--grey-5); margin-bottom: 0.75rem; }
-.vote-board-hint { font-size: 0.78rem; color: var(--grey-4); margin: -0.4rem 0 0.85rem; line-height: 1.4; }
+.vote-board-hint { font-size: 0.82rem; color: var(--grey-4); margin: -0.4rem 0 0.85rem; line-height: 1.4; }
 
 /* Selbststeuerung: Blätter-Navigation auf dem Teilnehmergerät */
 .pace-nav {

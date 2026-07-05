@@ -204,6 +204,13 @@ const DICT = {
   'vote.qa.boardTitle': { de: 'Fragen aus dem Publikum', en: 'Audience questions' },
   'vote.qa.boardHint': { de: 'Gib den Fragen, die dich interessieren, ein 👍 — die beliebtesten stehen oben.', en: 'Give a 👍 to the questions you like — the most popular rise to the top.' },
   'vote.qa.limitReached': { de: 'Limit erreicht — maximal 5 Fragen pro Person.', en: 'Limit reached — maximum 5 questions per person.' },
+  'vote.change': { de: 'Ändern', en: 'Change' },
+  'vote.thanks': { de: 'Danke — deine Stimme zählt.', en: 'Thanks — your vote counts.' },
+  'vote.locked.chip': { de: 'Abstimmung gesperrt', en: 'Voting locked' },
+  'vote.points.budget': { de: '{{n}} von {{total}} Punkten übrig', en: '{{n}} of {{total}} points left' },
+  'vote.points.slider': { de: 'Punkte für {{opt}}', en: 'Points for {{opt}}' },
+  'vote.quiz.once': { de: 'Einmalige Antwort — kann nicht geändert werden.', en: 'One-time answer — cannot be changed.' },
+  'vote.ranking.dragHint': { de: 'Zum Sortieren ziehen (oder ▲▼).', en: 'Drag to reorder (or ▲▼).' },
 
   // --- Ergebnis-Rendering (common.js) ------------------------------------------
   'results.hidden': { de: 'Ergebnisse sind ausgeblendet.', en: 'Results are hidden.' },
