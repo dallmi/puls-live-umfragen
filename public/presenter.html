@@ -810,8 +810,20 @@ function renderPresent(snap) {
   // Fußleiste / Navigation
   $('presentPos').textContent = snap.slideCount ? `${snap.activeIndex + 1} / ${snap.slideCount}` : '0 / 0';
   $('audienceCount').textContent = t('presenter.present.audience', { n: snap.audience });
-  $('btnToggleResults').textContent = snap.resultsHidden ? t('presenter.present.showResults') : t('presenter.present.hideResults');
-  $('btnToggleLock').textContent = snap.votingLocked ? t('presenter.present.unlockVoting') : t('presenter.present.lockVoting');
+  const rHidden = !!snap.resultsHidden, vLocked = !!snap.votingLocked;
+  const tr = $('btnToggleResults'), tl = $('btnToggleLock');
+  tr.textContent = t('presenter.present.resultsLabel') + (rHidden ? ' ●' : ' ○');
+  tr.setAttribute('aria-pressed', String(rHidden));
+  tr.classList.toggle('is-active', rHidden);
+  tl.textContent = t('presenter.present.votingLabel') + (vLocked ? ' ●' : ' ○');
+  tl.setAttribute('aria-pressed', String(vLocked));
+  tl.classList.toggle('is-active', vLocked);
+
+  // Status-Chips auf der Bühne (publikumsseitig)
+  const st = $('presentStatus');
+  st.innerHTML = '';
+  if (vLocked) st.appendChild(el(`<span class="present-chip">${esc(t('presenter.present.statusLocked'))}</span>`));
+  if (rHidden) st.appendChild(el(`<span class="present-chip">${esc(t('presenter.present.statusResultsHidden'))}</span>`));
   $('btnPrev').disabled = snap.activeIndex <= 0;
   $('btnNext').disabled = snap.activeIndex >= snap.slideCount - 1;
 

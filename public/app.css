@@ -195,6 +195,20 @@ main { flex: 1; width: 100%; }
 .present-footer .hints { font-size: 0.72rem; color: var(--grey-4); }
 .present-footer .qr-small svg { display: block; }
 
+/* Mockup C — Zustands-Toggles + Status-Chips */
+.present-toggles { display: flex; gap: 0.5rem; align-items: center; }
+.present-toggle[aria-pressed="true"], .present-toggle.is-active {
+  background: var(--primary); border-color: var(--primary); color: var(--white);
+}
+.present-toggle.is-active:hover { background: var(--primary-dark); border-color: var(--primary-dark); }
+.present-status { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; margin-bottom: 1rem; min-height: 0; }
+.present-status:empty { display: none; }
+.present-chip {
+  display: inline-block; padding: 0.3rem 0.8rem; border-radius: var(--radius);
+  background: var(--danger-bg); color: var(--danger); border: 1px solid var(--danger);
+  font-size: clamp(0.8rem, 1.4vw, 1.05rem); font-weight: 600;
+}
+
 /* --- Q&A-Moderation (Präsentationsmodus) ------------------------------------- */
 .moderation-panel {
   position: fixed; top: 64px; right: 20px; z-index: 120;
