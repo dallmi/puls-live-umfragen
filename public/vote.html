@@ -146,7 +146,7 @@ function onSnapshot(s) {
 function repaintMorph(snap) {
   const slide = curSlide();
   if (!slide) return;
-  if (!(slide.type === 'choice' || slide.type === 'scale')) return;
+  if (!(slide.type === 'choice' || slide.type === 'scale' || slide.type === 'points' || slide.type === 'ranking')) return;
 
   const prev = votedStore()[slide.id];
   if (prev === undefined) return; // noch nicht abgestimmt → nichts zu übermalen
@@ -157,6 +157,10 @@ function repaintMorph(snap) {
   } else if (slide.type === 'scale') {
     const picker = document.querySelector('#voteForm .scale-picker');
     if (picker && typeof prev === 'number') paintScaleResults(picker, slide, prev);
+  } else if (slide.type === 'points' || slide.type === 'ranking') {
+    // Nur nachmalen, wenn gerade das Board (nicht die Eingabe nach „Ändern") gezeigt wird.
+    const holder = document.querySelector('#voteForm .morph-board');
+    if (holder) paintMorphBoard(holder, slide, null);
   }
 }
 
@@ -344,6 +348,40 @@ function voteBar({ label, onConfirm }) {
   btn.addEventListener('click', () => { if (!btn.disabled) onConfirm(); });
   (document.getElementById('root') || document.body).appendChild(barEl);
   return { el: barEl, setEnabled: (b) => { btn.disabled = !b; } };
+}
+
+// Morph: Eingabe (Slider/Ranking) → Ergebnis-Board + „Ändern". Geteilt von buildPoints
+// (Task 5) und buildRanking (Task 6). Malt den Board-Inhalt über paintMorphBoard, damit
+// repaintMorph ihn — wie die choice/scale-Balken — auf JEDEM Snapshot live nachzeichnen
+// kann, statt nur einmal beim Bestätigen. So bleibt das Board aktuell, wenn andere
+// Teilnehmende noch abstimmen, und verschwindet sofort, wenn die Moderation „Ergebnisse
+// ausblenden" umschaltet — ohne das schon live aktualisierende #resultsBlock zu duplizieren
+// (das bleibt hier ausgeblendet, weil morphBoard showResults()/resultsVisible nicht anfasst).
+function paintMorphBoard(holder, slide, own) {
+  holder.innerHTML = '';
+  if (snap.resultsHidden || !curResults()) {
+    holder.appendChild(submittedNote(t('vote.thanks')));
+  } else {
+    const box = el('<div></div>');
+    renderResults(box, slide, curResults(), own != null ? { own } : {});
+    holder.appendChild(box);
+  }
+}
+
+function morphBoard(form, slide, own) {
+  const oldBar = document.getElementById('voteConfirmBar');
+  if (oldBar) oldBar.remove();
+  form.innerHTML = '';
+  const holder = el('<div class="morph-board"></div>');
+  form.appendChild(holder);
+  paintMorphBoard(holder, slide, own);
+  const change = el(`<button class="ds-btn ds-btn-lg" style="margin-top:1rem;">${esc(t('vote.change'))}</button>`);
+  change.addEventListener('click', () => {
+    form.innerHTML = '';
+    if (slide.type === 'points') buildPoints(form, slide, true);
+    else if (slide.type === 'ranking') buildRanking(form, slide);
+  });
+  form.appendChild(change);
 }
 
 // --- Multiple Choice ---------------------------------------------------------
@@ -611,72 +649,60 @@ function paintScaleResults(picker, slide, ownValue) {
   });
 }
 
-// --- 100-Punkte-Verteilung ---------------------------------------------------
-function buildPoints(form, slide) {
+// --- 100-Punkte-Verteilung (Mockup B: Slider + Budget-Balken) -----------------
+// forceEdit: von morphBoards „Ändern"-Button gesetzt, damit die Eingabe wirklich
+// erscheint statt wegen des vorhandenen votedStore-Eintrags sofort wieder ins
+// Board zu morphen (siehe Bugfix-Hinweis im Report).
+function buildPoints(form, slide, forceEdit) {
   const total = slide.total || 100;
   const opts = slide.options || [];
   const prev = votedStore()[slide.id];
   const pts = Array.isArray(prev) && prev.length === opts.length ? [...prev] : opts.map(() => 0);
 
   const box = el('<div class="points-list"></div>');
-  const remainLine = el(`<div class="points-remaining"></div>`);
+  const budget = el('<div class="points-budget"><div class="pb-track"><div class="pb-fill"></div></div><div class="pb-text"></div></div>');
   const rows = [];
+  const used = () => pts.reduce((a, b) => a + (b || 0), 0);
+  const remaining = () => total - used();
 
-  function used() { return pts.reduce((a, b) => a + (b || 0), 0); }
-  function remaining() { return total - used(); }
   function refresh() {
     const rem = remaining();
-    remainLine.textContent = t('vote.points.remaining', { n: rem, total });
-    remainLine.classList.toggle('none-left', rem <= 0);
-    rows.forEach((r, i) => {
-      r.valueEl.textContent = pts[i];
-      r.plus.disabled = rem <= 0;
-      r.minus.disabled = (pts[i] || 0) <= 0;
-    });
-    submitBtn.disabled = used() <= 0;
+    budget.querySelector('.pb-fill').style.width = (used() / total * 100) + '%';
+    budget.querySelector('.pb-text').textContent = t('vote.points.budget', { n: rem, total });
+    budget.classList.toggle('none-left', rem <= 0);
+    rows.forEach((r, i) => { r.valueEl.textContent = pts[i]; r.range.max = String((pts[i] || 0) + Math.max(0, rem)); });
+    bar.setEnabled(used() > 0);
   }
 
   opts.forEach((opt, i) => {
     const row = el(`
-      <div class="points-row">
+      <div class="points-row slider-row">
         <span class="points-label">${esc(opt)}</span>
-        <div class="points-stepper">
-          <button type="button" class="points-btn points-minus" aria-label="−">−</button>
-          <span class="points-value">0</span>
-          <button type="button" class="points-btn points-plus" aria-label="+">+</button>
-        </div>
+        <input type="range" class="points-range" min="0" step="5" value="${pts[i] || 0}" aria-label="${esc(t('vote.points.slider', { opt }))}">
+        <span class="points-value">${pts[i] || 0}</span>
       </div>`);
-    const minus = row.querySelector('.points-minus');
-    const plus = row.querySelector('.points-plus');
+    const range = row.querySelector('.points-range');
     const valueEl = row.querySelector('.points-value');
-    const STEP = 5;
-    minus.addEventListener('click', () => { pts[i] = Math.max(0, (pts[i] || 0) - STEP); refresh(); });
-    plus.addEventListener('click', () => {
-      const add = Math.min(STEP, remaining());
-      if (add > 0) { pts[i] = (pts[i] || 0) + add; refresh(); }
+    range.addEventListener('input', () => {
+      let v = Math.round(Number(range.value) / 5) * 5;
+      const others = used() - (pts[i] || 0);
+      v = Math.min(v, total - others);   // Budget hart begrenzen
+      pts[i] = Math.max(0, v);
+      range.value = String(pts[i]);
+      refresh();
     });
-    rows.push({ valueEl, plus, minus });
+    rows.push({ valueEl, range });
     box.appendChild(row);
   });
 
-  const submitBtn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg" style="margin-top:1rem;">${t('vote.points.submit')}</button>`);
-  const note = el('<div></div>');
-  submitBtn.addEventListener('click', () => {
-    if (used() <= 0) return;
-    submit(pts, () => {
-      markVoted(slide.id, pts);
-      note.innerHTML = '';
-      note.appendChild(submittedNote(t('vote.points.recorded')));
-      showResults(slide.id);
-    });
-  });
-
   form.appendChild(box);
-  form.appendChild(remainLine);
-  form.appendChild(submitBtn);
-  form.appendChild(note);
+  form.appendChild(budget);
+  const bar = voteBar({ label: t('vote.points.submit'), onConfirm: () => {
+    if (used() <= 0) return;
+    submit(pts, () => { markVoted(slide.id, pts); morphBoard(form, slide, null); });
+  }});
   refresh();
-  if (Array.isArray(prev)) { note.appendChild(submittedNote(t('vote.points.recorded'))); showResults(); }
+  if (!forceEdit && Array.isArray(prev)) morphBoard(form, slide, null);
 }
 
 // --- Ranking (Reihenfolge per Auf/Ab) ----------------------------------------

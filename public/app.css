@@ -589,3 +589,12 @@ main { flex: 1; width: 100%; }
 .scale-btn .sb-count { position: absolute; bottom: 2px; left: 0; right: 0; text-align: center; font-size: 0.7rem; z-index: 1; color: var(--grey-5); }
 .scale-btn.as-bar::before { content:""; position:absolute; inset:auto 0 0 0; height: var(--fill,0%); background: var(--surface); z-index:0; transition: height 0.4s ease; }
 .scale-btn.own { outline: 2px solid var(--primary); outline-offset: -2px; }
+
+/* Mockup B — Punkte-Slider (V4) */
+.points-row.slider-row { display: flex; align-items: center; gap: 0.75rem; }
+.points-range { flex: 1; min-height: 44px; accent-color: var(--primary); }
+.points-budget { margin-top: 0.75rem; }
+.points-budget .pb-track { height: 0.6rem; background: var(--surface); border-radius: var(--radius); overflow: hidden; }
+.points-budget .pb-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.2s ease; }
+.points-budget .pb-text { font-size: 0.85rem; color: var(--grey-5); margin-top: 0.3rem; font-variant-numeric: tabular-nums; }
+.points-budget.none-left .pb-text { color: var(--primary); font-weight: 600; }
