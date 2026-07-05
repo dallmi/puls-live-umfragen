@@ -50,7 +50,6 @@ const PID = participantId();
 let presId = null;
 let snap = null;
 let renderedKey = null;   // slide.id + locked — Formular nur bei Änderung neu bauen
-let selection = [];       // Auswahl bei choice/scale
 let upvoted = new Set(); // pro Präsentation geladen, sobald presId bekannt ist
 let paceIndex = 0;        // Selbststeuerung: Folie, auf der die Person gerade ist
 
@@ -129,7 +128,6 @@ function onSnapshot(s) {
 
   if (key !== renderedKey) {
     renderedKey = key;
-    selection = [];
     buildSlide();
   }
   updateResults();
@@ -433,13 +431,22 @@ function buildChoice(form, slide) {
   (slide.options || []).forEach((opt, i) => {
     const btn = el(`<button class="vote-option${chosen === i ? ' selected' : ''}"><span class="mark"></span><span class="vo-label">${esc(opt)}</span><span class="vo-count"></span></button>`);
     btn.addEventListener('click', () => {
+      const prevChosen = chosen;
       chosen = i;
       box.querySelectorAll('.vote-option').forEach((b, j) => b.classList.toggle('selected', j === i));
-      submit([i], () => { markVoted(slide.id, [i]); paintChoiceResults(box, slide, [i]); });
+      err.textContent = '';
+      submit([i], () => { markVoted(slide.id, [i]); paintChoiceResults(box, slide, [i]); }, () => {
+        // Fehlgeschlagen → optimistische Markierung zurücknehmen
+        chosen = prevChosen;
+        box.querySelectorAll('.vote-option').forEach((b, j) => b.classList.toggle('selected', j === prevChosen));
+        err.textContent = t('vote.name.err');
+      });
     });
     box.appendChild(btn);
   });
   form.appendChild(box);
+  const err = el('<div class="error-note"></div>');
+  form.appendChild(err);
   if (chosen !== null) paintChoiceResults(box, slide, [chosen]);
 }
 
@@ -614,14 +621,23 @@ function buildScale(form, slide) {
   for (let v = slide.min; v <= slide.max; v++) {
     const b = el(`<button class="scale-btn${chosen === v ? ' selected' : ''}"><span class="sb-num">${v}</span><span class="sb-count"></span></button>`);
     b.addEventListener('click', () => {
+      const prevChosen = chosen;
       chosen = v;
       picker.querySelectorAll('.scale-btn').forEach((x, idx) => x.classList.toggle('selected', idx + slide.min === v));
-      submit(v, () => { markVoted(slide.id, v); paintScaleResults(picker, slide, v); });
+      err.textContent = '';
+      submit(v, () => { markVoted(slide.id, v); paintScaleResults(picker, slide, v); }, () => {
+        // Fehlgeschlagen → optimistische Markierung zurücknehmen
+        chosen = prevChosen;
+        picker.querySelectorAll('.scale-btn').forEach((x, idx) => x.classList.toggle('selected', idx + slide.min === chosen));
+        err.textContent = t('vote.name.err');
+      });
     });
     picker.appendChild(b);
   }
   form.appendChild(picker);
   form.appendChild(el(`<div class="scale-labels"><span>${esc(slide.minLabel || '')}</span><span>${esc(slide.maxLabel || '')}</span></div>`));
+  const err = el('<div class="error-note"></div>');
+  form.appendChild(err);
   if (chosen !== null) paintScaleResults(picker, slide, chosen);
 }
 
@@ -761,9 +777,15 @@ function buildRanking(form, slide, forceEdit) {
           // hier reicht Neuaufbau; der Nutzer greift ggf. neu. Handle-Release beendet.
         }
       }
-      function up() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', up); }
+      function cleanup() {
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup', cleanup);
+        document.removeEventListener('pointercancel', cleanup);
+        row.classList.remove('dragging');
+      }
       document.addEventListener('pointermove', move);
-      document.addEventListener('pointerup', up);
+      document.addEventListener('pointerup', cleanup);
+      document.addEventListener('pointercancel', cleanup);
     });
   }
 

@@ -290,20 +290,7 @@ main { flex: 1; width: 100%; }
   padding: 0.55rem 0.75rem; border: 1px solid var(--grey-2); border-radius: var(--radius); background: var(--white);
 }
 .points-label { flex: 1; font-size: 0.95rem; color: var(--grey-6); word-break: break-word; }
-.points-stepper { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
-.points-btn {
-  width: 34px; height: 34px; font-size: 1.2rem; line-height: 1; text-align: center;
-  background: var(--white); border: 1px solid var(--grey-3); border-radius: var(--radius);
-  color: var(--primary); cursor: pointer; font-variant-numeric: tabular-nums;
-}
-.points-btn:hover:not(:disabled) { border-color: var(--primary); }
-.points-btn:disabled { color: var(--grey-3); border-color: var(--grey-1); cursor: not-allowed; }
 .points-value { min-width: 2.2em; text-align: center; font-size: 1.05rem; font-variant-numeric: tabular-nums; color: var(--black); }
-.points-remaining {
-  margin-top: 0.75rem; font-size: 0.85rem; color: var(--grey-5); font-variant-numeric: tabular-nums;
-  text-align: right;
-}
-.points-remaining.none-left { color: var(--primary); font-weight: 600; }
 
 /* --- Ranking (Abstimmen: Auf/Ab-Reihenfolge) -------------------------------- */
 .ranking-hint { font-size: 0.85rem; color: var(--grey-4); margin-bottom: 0.6rem; }
@@ -318,7 +305,7 @@ main { flex: 1; width: 100%; }
   font-size: 0.85rem; font-variant-numeric: tabular-nums;
 }
 .ranking-text { flex: 1; font-size: 0.95rem; color: var(--grey-6); word-break: break-word; }
-.ranking-moves { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; }
+.ranking-moves { display: flex; flex-direction: row; gap: 4px; flex-shrink: 0; }
 .ranking-move {
   width: 30px; height: 20px; line-height: 1; font-size: 0.7rem; text-align: center;
   background: var(--white); border: 1px solid var(--grey-3); border-radius: var(--radius); color: var(--grey-6); cursor: pointer;
@@ -382,11 +369,6 @@ main { flex: 1; width: 100%; }
 .trends-table th:first-child, .trends-table td.tr-label { text-align: left; color: var(--grey-6); }
 .trends-table td:last-child { font-weight: 700; color: var(--black); } /* „Jetzt"-Spalte */
 .trends-table th:last-child { color: var(--primary); }
-.vote-locked {
-  border-left: 3px solid var(--warning); background: var(--warning-bg);
-  padding: 0.7rem 0.9rem; font-size: 0.85rem; color: var(--grey-6); margin-bottom: 1rem;
-  border-radius: var(--radius);
-}
 .vote-waiting { text-align: center; padding: 4rem 1rem; color: var(--grey-4); }
 .vote-waiting .ds-spinner { margin: 0 auto 1rem; }
 
@@ -592,7 +574,7 @@ main { flex: 1; width: 100%; }
 .vote-option.own { border-left: 3px solid var(--primary); }
 .scale-btn { position: relative; min-width: 48px; min-height: 48px; overflow: hidden; }
 .scale-btn .sb-num { position: relative; z-index: 1; }
-.scale-btn .sb-count { position: absolute; bottom: 2px; left: 0; right: 0; text-align: center; font-size: 0.7rem; z-index: 1; color: var(--grey-5); }
+.scale-btn .sb-count { position: absolute; bottom: 2px; left: 0; right: 0; text-align: center; font-size: 0.82rem; z-index: 1; color: var(--grey-5); }
 .scale-btn.as-bar::before { content:""; position:absolute; inset:auto 0 0 0; height: var(--fill,0%); background: var(--surface); z-index:0; transition: height 0.4s ease; }
 .scale-btn.own { outline: 2px solid var(--primary); outline-offset: -2px; }
 
@@ -610,4 +592,4 @@ main { flex: 1; width: 100%; }
 .rank-handle { flex-shrink: 0; width: 44px; min-height: 44px; display: flex; align-items: center; justify-content: center;
   font-size: 1.2rem; color: var(--grey-4); cursor: grab; touch-action: none; user-select: none; }
 .ranking-item.dragging { background: var(--surface-alt); }
-.ranking-move { min-width: 44px; min-height: 22px; }
+.ranking-move { min-width: 44px; min-height: 44px; }
