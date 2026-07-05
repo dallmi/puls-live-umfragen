@@ -347,6 +347,36 @@ function voteBar({ label, onConfirm }) {
 }
 
 // --- Multiple Choice ---------------------------------------------------------
+function buildChoiceMulti(form, slide) {
+  const prev = votedStore()[slide.id];
+  let selection = Array.isArray(prev) ? [...prev] : [];
+  let submitted = Array.isArray(prev);
+
+  const box = el('<div class="vote-options"></div>');
+  (slide.options || []).forEach((opt, i) => {
+    const btn = el(`<button class="vote-option multi${selection.includes(i) ? ' selected' : ''}"><span class="mark"></span><span class="vo-label">${esc(opt)}</span><span class="vo-count"></span></button>`);
+    btn.addEventListener('click', () => {
+      selection = selection.includes(i) ? selection.filter((x) => x !== i) : [...selection, i];
+      box.querySelectorAll('.vote-option').forEach((b, j) => b.classList.toggle('selected', selection.includes(j)));
+      bar.setEnabled(selection.length > 0);
+    });
+    box.appendChild(btn);
+  });
+  form.appendChild(box);
+
+  const bar = voteBar({ label: t('vote.choice.submit'), onConfirm: () => {
+    submit(selection, () => {
+      markVoted(slide.id, selection);
+      submitted = true;
+      paintChoiceResults(box, slide, selection);
+      bar.el.querySelector('#voteConfirmBtn').textContent = t('vote.change');
+      bar.setEnabled(true);
+    });
+  }});
+  bar.setEnabled(selection.length > 0);
+  if (submitted) { paintChoiceResults(box, slide, selection); bar.el.querySelector('#voteConfirmBtn').textContent = t('vote.change'); bar.setEnabled(true); }
+}
+
 function buildChoice(form, slide) {
   if (slide.multiple) return buildChoiceMulti(form, slide); // Mehrfachauswahl: Task 4
   const prevArr = votedStore()[slide.id];
@@ -462,7 +492,6 @@ function buildWordcloud(form, slide) {
     </div>`);
   const input = field.querySelector('input');
   const help = field.querySelector('#wcHelp');
-  const btn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg">${t('common.send')}</button>`);
   const note = el('<div></div>');
 
   function refresh() {
@@ -470,7 +499,7 @@ function buildWordcloud(form, slide) {
     help.textContent = r > 0 ? t('vote.wordcloud.remaining', { n: r }) : '';
     const done = r <= 0;
     input.disabled = done;
-    btn.disabled = done;
+    bar.setEnabled(!done && input.value.trim().length > 0);
     if (done) {
       note.innerHTML = '';
       note.appendChild(submittedNote(t('vote.wordcloud.done')));
@@ -478,7 +507,8 @@ function buildWordcloud(form, slide) {
     }
   }
 
-  btn.addEventListener('click', send);
+  const bar = voteBar({ label: t('common.send'), onConfirm: send });
+  input.addEventListener('input', () => bar.setEnabled(input.value.trim().length > 0 && remaining() > 0));
   input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
   function send() {
     const word = input.value.trim();
@@ -494,7 +524,6 @@ function buildWordcloud(form, slide) {
   }
 
   form.appendChild(field);
-  form.appendChild(btn);
   form.appendChild(note);
   if (sentCount > 0) showResults();
   refresh();
@@ -508,10 +537,9 @@ function buildOpen(form, slide) {
       <div class="help">${t('vote.open.help')}</div>
     </div>`);
   const ta = field.querySelector('textarea');
-  const btn = el(`<button class="ds-btn ds-btn-primary ds-btn-lg">${t('common.send')}</button>`);
   const note = el('<div></div>');
 
-  btn.addEventListener('click', () => {
+  function sendOpen() {
     const text = ta.value.trim();
     if (!text) return;
     submit(text, () => {
@@ -525,9 +553,12 @@ function buildOpen(form, slide) {
         note.appendChild(submittedNote(t('vote.open.limitReached')));
       }
     });
-  });
+  }
+
+  const bar = voteBar({ label: t('common.send'), onConfirm: sendOpen });
+  ta.addEventListener('input', () => bar.setEnabled(ta.value.trim().length > 0));
+  bar.setEnabled(false);
   form.appendChild(field);
-  form.appendChild(btn);
   form.appendChild(note);
 }
 
