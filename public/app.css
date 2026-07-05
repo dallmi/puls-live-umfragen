@@ -178,12 +178,12 @@ main { flex: 1; width: 100%; }
 .pjb-code { font-size: 1.15rem; color: var(--black); font-variant-numeric: tabular-nums; letter-spacing: 0.05em; }
 .pjb-qr svg { display: block; width: 44px; height: 44px; }
 
-.present-body { flex: 1; overflow: auto; padding: 2.5rem 4rem; display: flex; flex-direction: column; }
+.present-body { flex: 1; overflow: auto; padding: 2.5rem 4rem; display: flex; flex-direction: column; justify-content: center; }
 .present-body[hidden] { display: none; }
 @media (max-width: 760px) { .present-body { padding: 1.5rem; } }
-.present-question { font-size: 2.4rem; font-weight: 300; color: var(--black); line-height: 1.2; margin-bottom: 2rem; }
-.present-results { flex: 1; }
-.present-results .barchart { max-width: 900px; }
+.present-question { font-size: clamp(2rem, 4.5vw, 4rem); font-weight: 300; color: var(--black); line-height: 1.15; margin-bottom: 2rem; }
+.present-results { flex: 0 0 auto; }
+.present-results .barchart { max-width: min(1100px, 90vw); margin: 0 auto; width: 100%; }
 
 .present-footer {
   display: flex; justify-content: space-between; align-items: center; gap: 1rem;
@@ -415,9 +415,9 @@ main { flex: 1; width: 100%; }
 .bar-value { font-size: 0.95rem; font-weight: 600; color: var(--black); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .bar-pct { font-weight: 400; color: var(--grey-4); font-size: 0.78rem; margin-left: 0.4em; }
 
-.present-results .bar-label { font-size: 1.15rem; }
-.present-results .bar-track { height: 2.4rem; }
-.present-results .bar-value { font-size: 1.3rem; }
+.present-results .bar-label { font-size: clamp(1.1rem, 1.8vw, 1.6rem); }
+.present-results .bar-track { height: clamp(2.4rem, 4vw, 3.4rem); }
+.present-results .bar-value { font-size: clamp(1.3rem, 2vw, 1.8rem); }
 
 /* --- Wortwolke ---------------------------------------------------------------- */
 .wordcloud {
