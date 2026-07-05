@@ -513,7 +513,7 @@ main { flex: 1; width: 100%; }
 }
 
 /* --- Diverses ---------------------------------------------------------------------- */
-.results-meta { font-size: 0.75rem; color: var(--grey-4); margin-top: 1rem; }
+.results-meta { font-size: 0.82rem; color: var(--grey-4); margin-top: 1rem; }
 .results-empty, .results-hidden { color: var(--grey-4); font-size: 0.95rem; padding: 2rem 0; }
 .footer-note {
   padding: 1rem 1.5rem; font-size: 0.7rem; color: var(--grey-4);
