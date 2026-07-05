@@ -228,6 +228,7 @@
       </button>
     </div>
     <div style="display:flex; align-items:center; gap:1.25rem;">
+      <span id="presentLangToggle"></span>
       <span class="audience-count" id="audienceCount"></span>
       <button class="ds-btn" id="btnExitPresent" data-i18n="presenter.present.exit">Beenden (Esc)</button>
     </div>
@@ -272,6 +273,7 @@
 
 document.title = t('presenter.pageTitle');
 initLangToggle(document.getElementById('langToggle'), refreshLanguage);
+initLangToggle(document.getElementById('presentLangToggle'), refreshLanguage);
 
 const params = new URLSearchParams(location.search);
 const PRES_ID = params.get('id');
@@ -748,6 +750,7 @@ async function enterPresent() {
   $('pjsAt').innerHTML = `${esc(t('presenter.access.joinAt'))} <b>${esc(joinUrl)}</b>`;
   renderQR($('pjsQr'), `${publicBase}/${pres.code}`, 240);
   renderQR($('pjbQr'), `${publicBase}/${pres.code}`, 44);
+  fillJoinStageTexts((lastSnapshot && lastSnapshot.audience) || 0);
   lastReactionTs = Date.now(); // beim Start keine gepufferten Alt-Reaktionen abfeuern
   $('presentReactions').innerHTML = '';
   applyBrand(pres.brand, PRES_ID, [$('presentBrandLogo')]);
@@ -795,17 +798,21 @@ function onSnapshot(snap) {
   renderPresent(snap);
 }
 
+function fillJoinStageTexts(audience) {
+  $('pjsHeading').textContent = t('presenter.join.heading');
+  $('pjsCode').textContent = formatCode(pres.code);
+  $('pjsCounter').textContent = t('presenter.join.counter', { n: audience });
+  $('btnStartSlides').textContent = t('presenter.join.start');
+  $('pjbLabel').textContent = t('presenter.join.barLabel');
+  $('pjbCode').textContent = formatCode(pres.code);
+}
+
 function renderPresent(snap) {
   lastReactionTs = animateReactions($('presentReactions'), snap.reactions, lastReactionTs);
   applyBrand(snap.brand, PRES_ID, [$('presentBrandLogo')]);
 
   // Beitritts-Bühne + Dauer-Leiste
-  $('pjsHeading').textContent = t('presenter.join.heading');
-  $('pjsCode').textContent = formatCode(pres.code);
-  $('pjsCounter').textContent = t('presenter.join.counter', { n: snap.audience });
-  $('btnStartSlides').textContent = t('presenter.join.start');
-  $('pjbLabel').textContent = t('presenter.join.barLabel');
-  $('pjbCode').textContent = formatCode(pres.code);
+  fillJoinStageTexts(snap.audience);
 
   // Fußleiste / Navigation
   $('presentPos').textContent = snap.slideCount ? `${snap.activeIndex + 1} / ${snap.slideCount}` : '0 / 0';
@@ -836,6 +843,7 @@ function renderPresent(snap) {
     return;
   }
   q.textContent = snap.slide.question || typeMeta(snap.slide.type).label || '';
+  // Quiz: richtige Antwort kennt nur der (authentifizierte) Moderator aus seinen Admin-Daten.
   let correctIndex = -1;
   if (snap.slide.type === 'quiz' && pres) {
     const full = pres.slides.find((s) => s.id === snap.slide.id);
@@ -848,6 +856,7 @@ function renderPresent(snap) {
 // Q&A-Moderation: ausstehende Fragen der aktiven Folie freigeben/entfernen.
 async function refreshModeration(snap) {
   const panel = $('moderationPanel');
+  if (joinStage) { panel.hidden = true; return; }
   const isMod = presenting && snap.slide && snap.slide.type === 'qa' && snap.slide.moderated;
   if (!isMod) { panel.hidden = true; return; }
   try {

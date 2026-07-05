@@ -120,10 +120,6 @@ const DICT = {
   'presenter.present.exit': { de: 'Beenden (Esc)', en: 'Exit (Esc)' },
   'presenter.present.prev': { de: '← Zurück', en: '← Back' },
   'presenter.present.next': { de: 'Weiter →', en: 'Next →' },
-  'presenter.present.showResults': { de: 'Ergebnisse einblenden', en: 'Show results' },
-  'presenter.present.hideResults': { de: 'Ergebnisse ausblenden', en: 'Hide results' },
-  'presenter.present.unlockVoting': { de: 'Abstimmung freigeben', en: 'Unlock voting' },
-  'presenter.present.lockVoting': { de: 'Abstimmung sperren', en: 'Lock voting' },
   'presenter.present.noSlides': { de: 'Keine Folien vorhanden.', en: 'No slides available.' },
   'presenter.present.audience': {
     de: { one: '{{n}} Person verbunden', other: '{{n}} Personen verbunden' },
