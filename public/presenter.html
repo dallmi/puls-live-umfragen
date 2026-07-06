@@ -325,6 +325,26 @@ async function resolvePublicBase() {
 const $ = (id) => document.getElementById(id);
 
 // ---------------------------------------------------------------------------
+// Overflow-Menü (Mockup A, E4/E6) — bündelt Gefahr-/Sekundäraktionen hinter „…"
+// ---------------------------------------------------------------------------
+
+function overflowMenu(items) {
+  const wrap = el(`<div class="overflow-menu"><button class="ds-btn overflow-btn" type="button" aria-haspopup="true" aria-expanded="false" title="${esc(t('presenter.more'))}">⋯</button><div class="overflow-list" hidden></div></div>`);
+  const btn = wrap.querySelector('.overflow-btn');
+  const list = wrap.querySelector('.overflow-list');
+  items.forEach((it) => {
+    const b = el(`<button class="overflow-item${it.danger ? ' danger' : ''}" type="button">${esc(it.label)}</button>`);
+    b.addEventListener('click', () => { close(); it.onClick(); });
+    list.appendChild(b);
+  });
+  function open() { list.hidden = false; btn.setAttribute('aria-expanded', 'true'); document.addEventListener('click', onDoc, true); }
+  function close() { list.hidden = true; btn.setAttribute('aria-expanded', 'false'); document.removeEventListener('click', onDoc, true); }
+  function onDoc(e) { if (!wrap.contains(e.target)) close(); }
+  btn.addEventListener('click', (e) => { e.stopPropagation(); list.hidden ? open() : close(); });
+  return wrap;
+}
+
+// ---------------------------------------------------------------------------
 // Live-Vorschau (Mockup A, E2) — postet die aktuelle Folie an das Vorschau-iframe
 // ---------------------------------------------------------------------------
 
@@ -818,6 +838,15 @@ function moveSlide(delta) {
   scheduleSave();
 }
 
+// Editor-Kopf — Gefahraktionen ins Overflow-Menü (Mockup A, E4)
+$('slideEditorTitle').parentElement.appendChild(
+  overflowMenu([
+    { label: t('presenter.slide.resetAnswers'), danger: true, onClick: () => $('btnResetSlide').click() },
+    { label: t('presenter.slide.delete'), danger: true, onClick: () => $('btnDeleteSlide').click() },
+  ])
+);
+$('btnResetSlide').hidden = true; $('btnDeleteSlide').hidden = true;
+
 // PowerPoint-Export: aktuelle Ergebnisse holen, Präsentation clientseitig bauen
 $('btnPptx').addEventListener('click', async () => {
   const btn = $('btnPptx');
@@ -844,6 +873,17 @@ $('btnResetAll').addEventListener('click', async () => {
   if (!await confirmDialog({ title: t('presenter.resetAll'), body: t('presenter.confirm.resetAllBody'), confirmLabel: t('presenter.resetAll'), danger: true })) return;
   await api('POST', `/api/presentations/${PRES_ID}/reset`, {}, TOKEN);
 });
+
+// Header — Sekundäres/Gefahraktionen ins Overflow-Menü (Mockup A, E4/E6)
+document.querySelector('.ds-header-controls').insertBefore(
+  overflowMenu([
+    { label: t('presenter.export'), onClick: () => $('btnExport').click() },
+    { label: t('presenter.pptxExport'), onClick: () => $('btnPptx').click() },
+    { label: t('presenter.resetAll'), danger: true, onClick: () => $('btnResetAll').click() },
+  ]),
+  document.getElementById('btnPresent')
+);
+['btnResetAll','btnExport','btnPptx'].forEach((id) => { $(id).hidden = true; });
 
 // ---------------------------------------------------------------------------
 // Präsentationsmodus
