@@ -89,6 +89,7 @@ const DICT = {
   'presenter.brand.tooLarge': { de: 'Logo zu groß — bitte ein Bild unter 60 KB wählen.', en: 'Logo too large — please choose an image under 60 KB.' },
   'presenter.slide.moveUp': { de: 'Nach oben', en: 'Move up' },
   'presenter.slide.moveDown': { de: 'Nach unten', en: 'Move down' },
+  'presenter.slide.reorder': { de: 'Folie verschieben', en: 'Reorder slide' },
   'presenter.slide.resetAnswers': { de: 'Antworten zurücksetzen', en: 'Reset answers' },
   'presenter.slide.delete': { de: 'Löschen', en: 'Delete' },
   'presenter.field.type': { de: 'Folientyp', en: 'Slide type' },

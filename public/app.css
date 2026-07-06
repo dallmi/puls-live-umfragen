@@ -642,3 +642,10 @@ body.is-preview .ds-header, body.is-preview .footer-note, body.is-preview #react
 .slide-item .slide-open { flex: 1; display: flex; align-items: center; gap: 0.6rem; background: none; border: none; text-align: left; cursor: pointer; font: inherit; padding: 0; }
 .slide-item.dragging { background: var(--surface-alt); }
 .slide-item .slide-actions { flex-shrink: 0; }
+
+/* Mockup A — Mobiler Header darf nicht abgeschnitten werden (E6) */
+@media (max-width: 600px) {
+  .ds-header { padding: 0.6rem 0.9rem; }
+  .ds-header-controls { gap: 0.4rem; }
+  .ds-header .ds-title [data-i18n="presenter.brand"] { display: none; }
+}

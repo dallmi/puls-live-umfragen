@@ -512,7 +512,7 @@ function renderSlideList() {
   pres.slides.forEach((s, i) => {
     const item = el(`
       <div class="slide-item${i === selectedIdx ? ' active' : ''}">
-        <span class="slide-handle" role="button" aria-label="${esc(t('presenter.slide.moveUp'))}" title="${esc(t('presenter.slide.moveUp'))}">⠿</span>
+        <span class="slide-handle" role="button" aria-label="${esc(t('presenter.slide.reorder'))}" title="${esc(t('presenter.slide.reorder'))}">⠿</span>
         <button class="slide-open" type="button">
           <span class="num">${i + 1}</span>
           <span class="meta"><span class="q">${esc(s.question || typeMeta(s.type).label || t('common.slideFallback'))}</span><br><span class="ty">${esc(typeMeta(s.type).label || s.type)}</span></span>
@@ -521,6 +521,8 @@ function renderSlideList() {
       </div>`);
     item.querySelector('.slide-open').addEventListener('click', () => { selectedIdx = i; renderSlideList(); renderSlideEditor(); });
     item.querySelector('.slide-actions').appendChild(overflowMenu([
+      { label: t('presenter.slide.moveUp'), onClick: () => moveSlideBy(i, -1) },
+      { label: t('presenter.slide.moveDown'), onClick: () => moveSlideBy(i, 1) },
       { label: t('presenter.slide.duplicate'), onClick: () => duplicateSlide(i) },
       { label: t('presenter.slide.delete'), danger: true, onClick: () => { selectedIdx = i; $('btnDeleteSlide').click(); } },
     ]));
@@ -535,6 +537,17 @@ function duplicateSlide(i) {
   pres.slides.splice(i + 1, 0, copy);
   selectedIdx = i + 1;
   renderSlideList(); renderSlideEditor(); scheduleSave();
+}
+
+function moveSlideBy(i, delta) {
+  const j = i + delta;
+  if (j < 0 || j >= pres.slides.length) return;
+  const selId = pres.slides[selectedIdx] && pres.slides[selectedIdx].id;
+  [pres.slides[i], pres.slides[j]] = [pres.slides[j], pres.slides[i]];
+  if (selId) selectedIdx = pres.slides.findIndex((s) => s.id === selId);
+  renderSlideList();
+  renderSlideEditor();
+  scheduleSave();
 }
 
 function attachSlideDrag(item, index) {
@@ -564,6 +577,7 @@ function attachSlideDrag(item, index) {
       document.removeEventListener('pointercancel', cleanup);
       document.querySelector('#slideList .slide-item.dragging')?.classList.remove('dragging');
       scheduleSave();
+      renderSlideEditor();
     }
     document.addEventListener('pointermove', move);
     document.addEventListener('pointerup', cleanup);
@@ -726,7 +740,7 @@ function typeIcon(type) {
     scale: '<line x1="3" y1="11" x2="21" y2="11"/><circle cx="15" cy="11" r="2.5" fill="currentColor" stroke="none"/>',
     ranking: '<line x1="7" y1="6" x2="20" y2="6"/><line x1="7" y1="11" x2="20" y2="11"/><line x1="7" y1="16" x2="20" y2="16"/><text x="2" y="8" font-size="6" fill="currentColor" stroke="none">1</text><text x="2" y="13" font-size="6" fill="currentColor" stroke="none">2</text><text x="2" y="18" font-size="6" fill="currentColor" stroke="none">3</text>',
     points: '<rect x="3" y="12" width="4" height="7"/><rect x="10" y="7" width="4" height="12"/><rect x="17" y="10" width="4" height="9"/>',
-    quiz: '<circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 4 2.8c-.8.4-1 .8-1 1.7" ${p}/><circle cx="12" cy="17" r="0.8" fill="currentColor" stroke="none"/>',
+    quiz: '<circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 4 2.8c-.8.4-1 .8-1 1.7"/><circle cx="12" cy="17" r="0.8" fill="currentColor" stroke="none"/>',
     qa: '<path d="M4 5h16v10H10l-4 4v-4H4z"/>',
     info: '<circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.9" fill="currentColor" stroke="none"/>',
   };
@@ -869,12 +883,19 @@ $('btnDeleteSlide').addEventListener('click', async () => {
 });
 
 // Editor-Kopf — Gefahraktionen ins Overflow-Menü (Mockup A, E4)
-$('slideEditorTitle').parentElement.appendChild(
-  overflowMenu([
-    { label: t('presenter.slide.resetAnswers'), danger: true, onClick: () => $('btnResetSlide').click() },
-    { label: t('presenter.slide.delete'), danger: true, onClick: () => $('btnDeleteSlide').click() },
-  ])
-);
+// In eine Funktion ausgelagert, damit sie bei Sprachwechsel (refreshLanguage) neu
+// gebaut werden kann — sonst blieben die Menüpunkte in der zuerst geladenen Sprache.
+function buildEditorHeadOverflowMenu() {
+  const head = $('slideEditorTitle').parentElement;
+  head.querySelector('.overflow-menu')?.remove();
+  head.appendChild(
+    overflowMenu([
+      { label: t('presenter.slide.resetAnswers'), danger: true, onClick: () => $('btnResetSlide').click() },
+      { label: t('presenter.slide.delete'), danger: true, onClick: () => $('btnDeleteSlide').click() },
+    ])
+  );
+}
+buildEditorHeadOverflowMenu();
 $('btnResetSlide').hidden = true; $('btnDeleteSlide').hidden = true;
 
 // PowerPoint-Export: aktuelle Ergebnisse holen, Präsentation clientseitig bauen
@@ -905,14 +926,20 @@ $('btnResetAll').addEventListener('click', async () => {
 });
 
 // Header — Sekundäres/Gefahraktionen ins Overflow-Menü (Mockup A, E4/E6)
-document.querySelector('.ds-header-controls').insertBefore(
-  overflowMenu([
-    { label: t('presenter.export'), onClick: () => $('btnExport').click() },
-    { label: t('presenter.pptxExport'), onClick: () => $('btnPptx').click() },
-    { label: t('presenter.resetAll'), danger: true, onClick: () => $('btnResetAll').click() },
-  ]),
-  document.getElementById('btnPresent')
-);
+// Ebenfalls ausgelagert, damit refreshLanguage() die Beschriftungen neu bauen kann.
+function buildHeaderOverflowMenu() {
+  const controls = document.querySelector('.ds-header-controls');
+  controls.querySelector('.overflow-menu')?.remove();
+  controls.insertBefore(
+    overflowMenu([
+      { label: t('presenter.export'), onClick: () => $('btnExport').click() },
+      { label: t('presenter.pptxExport'), onClick: () => $('btnPptx').click() },
+      { label: t('presenter.resetAll'), danger: true, onClick: () => $('btnResetAll').click() },
+    ]),
+    document.getElementById('btnPresent')
+  );
+}
+buildHeaderOverflowMenu();
 ['btnResetAll','btnExport','btnPptx'].forEach((id) => { $(id).hidden = true; });
 
 // ---------------------------------------------------------------------------
@@ -1113,6 +1140,8 @@ function refreshLanguage() {
     $('saveState').textContent = t('presenter.save.' + lastSaveState);
     $('saveState').classList.toggle('saved', lastSaveState === 'saved');
   }
+  buildHeaderOverflowMenu();
+  buildEditorHeadOverflowMenu();
   if (pres && !presenting) {
     renderSlideList();
     renderSlideEditor();
