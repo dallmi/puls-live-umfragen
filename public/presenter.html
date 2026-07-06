@@ -360,6 +360,23 @@ function pushPreview() {
 }
 function schedulePreview() { clearTimeout(previewTimer); previewTimer = setTimeout(pushPreview, 200); }
 
+// Nicht allein auf die "ready"-Nachricht des iframes verlassen: sie kann verloren
+// gehen, wenn das (evtl. gecachte) iframe sein Skript ausführt, bevor der Editor
+// oben seinen message-Listener registriert hat. Das iframe-load-Event feuert
+// eltern-seitig zuverlässig, sobald das iframe geladen ist (und seinen eigenen
+// message-Listener registriert hat) — dann ist der Kanal garantiert offen.
+(function wirePreviewFrame() {
+  const frame = document.getElementById('previewFrame');
+  if (!frame) return;
+  frame.addEventListener('load', () => { previewReady = true; pushPreview(); });
+  // Falls das iframe schon fertig geladen war, bevor dieser Listener hing:
+  try {
+    if (frame.contentWindow && frame.contentDocument && frame.contentDocument.readyState === 'complete') {
+      previewReady = true; pushPreview();
+    }
+  } catch { /* same-origin; defensiv */ }
+})();
+
 // ---------------------------------------------------------------------------
 // Laden & Speichern
 // ---------------------------------------------------------------------------
