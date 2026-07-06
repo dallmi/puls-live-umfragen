@@ -117,7 +117,9 @@ async function init() {
     upvoted = new Set(JSON.parse(localStorage.getItem('puls.upvoted.' + presId) || '[]'));
     paceIndex = parseInt(sessionStorage.getItem('puls.pace.' + presId) || '0', 10) || 0;
     setupReactionBar();
-    connectStream(presId, 'audience', onSnapshot);
+    connectStream(presId, 'audience', onSnapshot, (status) => {
+      if (status === 'gone') root.innerHTML = `<div class="ds-empty" style="padding:3rem 1rem;text-align:center;"><h3>${esc(t('vote.gone.title'))}</h3><p>${esc(t('vote.gone.desc'))}</p></div>`;
+    });
   } catch {
     root.innerHTML = `
       <div class="ds-empty">

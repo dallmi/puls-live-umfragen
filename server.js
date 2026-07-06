@@ -1075,13 +1075,24 @@ function exportWorkbook(pres) {
 
 /** Erreichbare LAN-Adressen dieses Rechners (für QR-Code/Beitritt per Handy). */
 function lanUrls() {
-  const urls = [];
+  const ips = [];
   for (const addrs of Object.values(os.networkInterfaces())) {
     for (const a of addrs || []) {
-      if (a.family === 'IPv4' && !a.internal) urls.push(`http://${a.address}:${PORT}`);
+      if (a.family !== 'IPv4' || a.internal) continue;
+      if (a.address.startsWith('169.254.')) continue; // Link-Local (kein echtes Netz)
+      ips.push(a.address);
     }
   }
-  return urls;
+  // Reihenfolge so, dass die wahrscheinlich echte WLAN-/LAN-Adresse zuerst kommt
+  // (der QR-Code nutzt die erste). Docker-Default-Bridges und VPN nach hinten (H2).
+  const dockerish = (ip) => /^172\.1[78]\./.test(ip); // 172.17/172.18 = Docker-Default
+  const rank = (ip) =>
+    ip.startsWith('192.168.') ? 0                        // typisches Heim-/Büro-WLAN
+      : /^172\.(1[6-9]|2[0-9]|3[0-1])\./.test(ip) ? 1    // u.a. Hotspot-Tethering
+        : ip.startsWith('10.') ? 2                       // oft VPN/Firmennetz
+          : 3;
+  ips.sort((a, b) => (dockerish(a) - dockerish(b)) || (rank(a) - rank(b)) || a.localeCompare(b));
+  return ips.map((ip) => `http://${ip}:${PORT}`);
 }
 
 async function handleApi(req, res, url) {

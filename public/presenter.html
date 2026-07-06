@@ -401,7 +401,12 @@ async function load() {
   renderSlideList();
   renderSlideEditor();
   // Ein Stream für Editor UND Präsentationsmodus: Ergebnisse bleiben überall live
-  if (!stream) stream = connectStream(PRES_ID, 'presenter', onSnapshot);
+  if (!stream) stream = connectStream(PRES_ID, 'presenter', onSnapshot, (status) => {
+    if (status === 'gone') {
+      if (presenting) exitPresent();
+      document.getElementById('editorRoot').innerHTML = `<div class="ds-empty"><h3>${esc(t('presenter.gone.title'))}</h3><p>${esc(t('presenter.gone.desc'))}</p></div>`;
+    }
+  });
 }
 
 // --- Ergebnis-Panel im Editor ------------------------------------------------
@@ -534,6 +539,22 @@ async function saveNow() {
     return false;
   }
 }
+
+// Ausstehende (debounced) Speicherung beim Verlassen/Verbergen der Seite noch absenden,
+// damit die letzten Editor-Änderungen nicht verloren gehen (H3). keepalive überlebt den Unload.
+function flushPendingSave() {
+  if (!pres || (lastSaveState !== 'saving' && lastSaveState !== 'failed')) return;
+  clearTimeout(saveTimer);
+  try {
+    fetch(`/api/presentations/${PRES_ID}/slides`, {
+      method: 'PUT', keepalive: true,
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': TOKEN },
+      body: JSON.stringify({ slides: pres.slides }),
+    });
+  } catch { /* best effort beim Unload */ }
+}
+window.addEventListener('pagehide', flushPendingSave);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPendingSave(); });
 
 // ---------------------------------------------------------------------------
 // Folienliste
@@ -731,9 +752,10 @@ function confirmDialog({ title, body, confirmLabel, danger }) {
           <button class="ds-btn ${danger ? 'ds-btn-danger' : 'ds-btn-primary'}" data-act="ok">${esc(confirmLabel || t('dialog.confirm'))}</button>
         </div>
       </div>`);
+    const prevFocus = document.activeElement;
     const ov = overlay(card);
-    function done(v) { ov.remove(); document.removeEventListener('keydown', onKey); resolve(v); }
-    function onKey(e) { if (e.key === 'Escape') done(false); }
+    function done(v) { ov.remove(); document.removeEventListener('keydown', onKey); if (prevFocus && prevFocus.focus) prevFocus.focus(); resolve(v); }
+    function onKey(e) { if (e.key === 'Escape') done(false); else trapTab(e, card); }
     card.querySelector('[data-act="cancel"]').addEventListener('click', () => done(false));
     card.querySelector('[data-act="ok"]').addEventListener('click', () => done(true));
     ov.addEventListener('click', (e) => { if (e.target === ov) done(false); });
@@ -751,14 +773,25 @@ function alertDialog({ title, body }) {
           <button class="ds-btn ds-btn-primary" data-act="close">${esc(t('dialog.close'))}</button>
         </div>
       </div>`);
+    const prevFocus = document.activeElement;
     const ov = overlay(card);
-    function done() { ov.remove(); document.removeEventListener('keydown', onKey); resolve(); }
-    function onKey(e) { if (e.key === 'Escape') done(); }
+    function done() { ov.remove(); document.removeEventListener('keydown', onKey); if (prevFocus && prevFocus.focus) prevFocus.focus(); resolve(); }
+    function onKey(e) { if (e.key === 'Escape') done(); else trapTab(e, card); }
     card.querySelector('[data-act="close"]').addEventListener('click', done);
     ov.addEventListener('click', (e) => { if (e.target === ov) done(); });
     document.addEventListener('keydown', onKey);
     card.querySelector('[data-act="close"]').focus();
   });
+}
+
+// Tastaturfokus in offenen Dialogen einfangen (a11y): Tab/Shift+Tab zyklisch (H32).
+function trapTab(e, card) {
+  if (e.key !== 'Tab') return;
+  const f = [...card.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((x) => !x.disabled && x.offsetParent !== null);
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
 // --- Typ-Galerie (Mockup A, E1) ---------------------------------------------
@@ -794,10 +827,13 @@ function openTypeGallery({ title, onPick }) {
     tile.addEventListener('click', () => { ov.remove(); document.removeEventListener('keydown', onKey); onPick(type); });
     grid.appendChild(tile);
   });
+  const prevFocus = document.activeElement;
   const ov = overlay(card);
-  function onKey(e) { if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', onKey); } }
-  ov.addEventListener('click', (e) => { if (e.target === ov) { ov.remove(); document.removeEventListener('keydown', onKey); } });
+  function close() { ov.remove(); document.removeEventListener('keydown', onKey); if (prevFocus && prevFocus.focus) prevFocus.focus(); }
+  function onKey(e) { if (e.key === 'Escape') close(); else trapTab(e, card); }
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
   document.addEventListener('keydown', onKey);
+  const firstTile = card.querySelector('.type-tile'); if (firstTile) firstTile.focus();
 }
 
 // Editor-Eingaben → lokalen Zustand aktualisieren

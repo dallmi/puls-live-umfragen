@@ -65,7 +65,10 @@ function connectStream(presId, role, onUpdate, onStatus) {
         if (closed) return;
         onUpdate(snap);
         if (onStatus) onStatus('live');
-      } catch {
+      } catch (e) {
+        // Präsentation gelöscht/abgelaufen → Polling stoppen und „beendet" melden,
+        // statt endlos weiterzupollen und die Anzeige einzufrieren (H33).
+        if (e && e.status === 404) { closed = true; if (onStatus) onStatus('gone'); return; }
         if (onStatus) onStatus('reconnect');
       }
       if (!closed) pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
