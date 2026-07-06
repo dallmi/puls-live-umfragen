@@ -105,6 +105,7 @@ main { flex: 1; width: 100%; }
 }
 @media (max-width: 1100px) { .editor-layout { grid-template-columns: 280px 1fr; } .editor-layout .preview-col { grid-column: 1 / -1; } }
 @media (max-width: 900px) { .editor-layout { grid-template-columns: 1fr; } }
+.editor-layout > * { min-width: 0; } /* verhindert Grid-Überlauf durch breite Inhalte (lange Optionen, Vorschau) */
 
 .slide-list { display: flex; flex-direction: column; gap: 0.4rem; }
 .slide-item {
@@ -255,7 +256,7 @@ main { flex: 1; width: 100%; }
 .vote-topline .pt { font-size: 0.8rem; color: var(--grey-4); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .vote-topline .pos { font-size: 0.75rem; color: var(--grey-4); font-variant-numeric: tabular-nums; flex-shrink: 0; }
 
-.vote-question { font-size: 1.35rem; font-weight: 600; color: var(--black); line-height: 1.3; margin-bottom: 1.25rem; }
+.vote-question { font-size: 1.35rem; font-weight: 600; color: var(--black); line-height: 1.3; margin-bottom: 1.25rem; overflow-wrap: anywhere; }
 
 .vote-options { display: flex; flex-direction: column; gap: 0.5rem; }
 .vote-option {
@@ -393,7 +394,7 @@ main { flex: 1; width: 100%; }
 .barchart { display: flex; flex-direction: column; gap: 0.65rem; border-left: 1px solid var(--black); padding-left: 0.9rem; }
 .bar-row { display: grid; grid-template-columns: minmax(90px, 200px) 1fr 80px; gap: 0.8rem; align-items: center; }
 @media (max-width: 640px) { .bar-row { grid-template-columns: minmax(70px, 120px) 1fr 66px; gap: 0.5rem; } }
-.bar-label { font-size: 0.9rem; color: var(--grey-6); overflow-wrap: anywhere; }
+.bar-label { font-size: 0.9rem; color: var(--grey-6); overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .bar-track { background: var(--surface); border-radius: 0; height: 1.7rem; position: relative; }
 .bar-fill { height: 100%; background: var(--bordeaux-2); transition: width 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
 .bar-fill.leader { background: var(--primary); }
@@ -417,7 +418,7 @@ main { flex: 1; width: 100%; }
   display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center;
   gap: 0.5rem 1.1rem; padding: 1.5rem 0; max-width: 900px; margin: 0 auto;
 }
-.cloud-word { line-height: 1.15; font-weight: 600; }
+.cloud-word { line-height: 1.15; font-weight: 600; overflow-wrap: anywhere; max-width: 100%; }
 
 /* --- Antwort-Wand ------------------------------------------------------------- */
 .answer-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0.6rem; }
@@ -559,13 +560,20 @@ main { flex: 1; width: 100%; }
   margin-top: 1rem;
 }
 .vote-confirm-bar .ds-btn { flex: 1; min-height: 48px; }
+.vote-error-banner {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 50;
+  padding: 0.7rem 1rem; text-align: center; font-size: 0.9rem; font-weight: 600;
+  background: var(--danger-bg); color: var(--danger); border-bottom: 2px solid var(--danger);
+}
+.vote-error-banner[hidden] { display: none; }
 .vote-lock-chip {
   display: inline-block; margin-bottom: 0.75rem; padding: 0.3rem 0.8rem;
-  border-radius: var(--radius); background: var(--warning-bg); color: var(--warning);
+  border-radius: var(--radius); background: var(--warning-bg); color: #5E4410;
   border: 1px solid var(--warning); font-size: 0.85rem; font-weight: 600;
 }
-.is-locked { opacity: 0.7; }
-.is-locked .locked-el { cursor: not-allowed; }
+/* Nur die deaktivierten Steuerelemente dimmen — der Sperr-Hinweis und die Frage
+   bleiben voll lesbar (früher dimmte opacity das ganze Formular inkl. Chip). */
+.is-locked .locked-el { cursor: not-allowed; opacity: 0.55; }
 
 /* Mockup B — Options-/Skala-Buttons als Ergebnis-Balken (antippbar) */
 .vote-option { position: relative; min-height: 48px; overflow: hidden; }
@@ -577,6 +585,9 @@ main { flex: 1; width: 100%; }
 }
 .vote-option.as-bar.leader::before { background: var(--surface-alt); }
 .vote-option.own { border-left: 3px solid var(--primary); }
+/* Im Ergebnis-Balken-Modus die konkurrierende „ausgewählt"-Füllung entfernen,
+   damit der Balken (::before) sichtbar bleibt — Auswahl nur über den Rahmen. */
+.vote-option.as-bar.selected { background: transparent; }
 .scale-btn { position: relative; min-width: 48px; min-height: 48px; overflow: hidden; }
 .scale-btn .sb-num { position: relative; z-index: 1; }
 .scale-btn .sb-count { position: absolute; bottom: 2px; left: 0; right: 0; text-align: center; font-size: 0.82rem; z-index: 1; color: var(--grey-5); }

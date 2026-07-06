@@ -951,11 +951,13 @@ $('btnPptx').addEventListener('click', async () => {
 
 $('btnResetSlide').addEventListener('click', async () => {
   if (!await confirmDialog({ title: t('presenter.slide.resetAnswers'), body: t('presenter.confirm.resetSlideBody'), confirmLabel: t('presenter.slide.resetAnswers'), danger: true })) return;
-  await api('POST', `/api/presentations/${PRES_ID}/reset`, { slideId: currentSlide().id }, TOKEN);
+  try { await api('POST', `/api/presentations/${PRES_ID}/reset`, { slideId: currentSlide().id }, TOKEN); }
+  catch { await alertDialog({ title: t('presenter.slide.resetAnswers'), body: t('presenter.error.generic') }); }
 });
 $('btnResetAll').addEventListener('click', async () => {
   if (!await confirmDialog({ title: t('presenter.resetAll'), body: t('presenter.confirm.resetAllBody'), confirmLabel: t('presenter.resetAll'), danger: true })) return;
-  await api('POST', `/api/presentations/${PRES_ID}/reset`, {}, TOKEN);
+  try { await api('POST', `/api/presentations/${PRES_ID}/reset`, {}, TOKEN); }
+  catch { await alertDialog({ title: t('presenter.resetAll'), body: t('presenter.error.generic') }); }
 });
 
 // Header — Sekundäres/Gefahraktionen ins Overflow-Menü (Mockup A, E4/E6)
@@ -1023,7 +1025,7 @@ function applyStagePresence() {
   $('presentJoinBar').hidden = joinStage; // Leiste nur während der Folien
 }
 
-function showSlides() { joinStage = false; applyStagePresence(); }
+function showSlides() { joinStage = false; applyStagePresence(); if (lastSnapshot) refreshModeration(lastSnapshot); }
 function showJoinStage() { joinStage = true; applyStagePresence(); }
 
 function exitPresent() {

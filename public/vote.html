@@ -338,8 +338,25 @@ async function submit(value, onOk, onErr) {
     });
     onOk && onOk(r); // r kann Quiz-Feedback enthalten ({ quiz: { correct, points } })
   } catch (e) {
-    onErr && onErr(e);
+    if (onErr) onErr(e);
+    else voteError(e); // kein spezieller Handler → sichtbare Fehlermeldung statt lautlosem Stimmverlust
   }
+}
+
+// Sichtbare, selbst-verschwindende Fehlermeldung für fehlgeschlagene Aktionen.
+let _voteErrTimer = null;
+function voteError(e) {
+  const code = e && e.status;
+  const msg = code === 423 ? t('vote.locked.chip')
+    : code === 429 ? t('vote.error.busy')
+    : code === 409 ? t('vote.error.already')
+    : t('vote.error.generic');
+  let banner = document.getElementById('voteErrorBanner');
+  if (!banner) { banner = el('<div id="voteErrorBanner" class="vote-error-banner" role="alert"></div>'); document.body.appendChild(banner); }
+  banner.textContent = msg;
+  banner.hidden = false;
+  clearTimeout(_voteErrTimer);
+  _voteErrTimer = setTimeout(() => { banner.hidden = true; }, 4500);
 }
 
 function applyLock(form) {
