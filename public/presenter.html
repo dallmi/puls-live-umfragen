@@ -544,18 +544,27 @@ function attachSlideDrag(item, index) {
     const startY = e.clientY;
     const rowH = item.getBoundingClientRect().height + 6;
     let curPos = index;
+    const selId = pres.slides[selectedIdx] && pres.slides[selectedIdx].id;
     item.classList.add('dragging');
     function move(ev) {
       const target = Math.max(0, Math.min(pres.slides.length - 1, index + Math.round((ev.clientY - startY) / rowH)));
       if (target !== curPos) {
         const moved = pres.slides.splice(curPos, 1)[0];
         pres.slides.splice(target, 0, moved);
-        if (selectedIdx === curPos) selectedIdx = target;
+        if (selId) selectedIdx = pres.slides.findIndex((s) => s.id === selId);
         curPos = target;
         renderSlideList();
+        const d = document.querySelectorAll('#slideList .slide-item')[curPos];
+        if (d) d.classList.add('dragging');
       }
     }
-    function cleanup() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', cleanup); document.removeEventListener('pointercancel', cleanup); item.classList.remove('dragging'); scheduleSave(); }
+    function cleanup() {
+      document.removeEventListener('pointermove', move);
+      document.removeEventListener('pointerup', cleanup);
+      document.removeEventListener('pointercancel', cleanup);
+      document.querySelector('#slideList .slide-item.dragging')?.classList.remove('dragging');
+      scheduleSave();
+    }
     document.addEventListener('pointermove', move);
     document.addEventListener('pointerup', cleanup);
     document.addEventListener('pointercancel', cleanup);
