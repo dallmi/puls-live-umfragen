@@ -563,6 +563,54 @@ function renderOptionRows() {
   if (s.type === 'quiz') refreshQuizCorrect();
 }
 
+// --- In-Style-Dialoge (ersetzen native confirm()/alert()) -------------------
+function overlay(inner) {
+  const ov = el(`<div class="ds-overlay" role="dialog" aria-modal="true"></div>`);
+  ov.appendChild(inner);
+  document.body.appendChild(ov);
+  return ov;
+}
+function confirmDialog({ title, body, confirmLabel, danger }) {
+  return new Promise((resolve) => {
+    const card = el(`
+      <div class="ds-dialog ds-card">
+        <div class="ds-card-title">${esc(title)}</div>
+        <p class="ds-dialog-body">${esc(body || '')}</p>
+        <div class="ds-dialog-actions">
+          <button class="ds-btn" data-act="cancel">${esc(t('dialog.cancel'))}</button>
+          <button class="ds-btn ${danger ? 'ds-btn-danger' : 'ds-btn-primary'}" data-act="ok">${esc(confirmLabel || t('dialog.confirm'))}</button>
+        </div>
+      </div>`);
+    const ov = overlay(card);
+    function done(v) { ov.remove(); document.removeEventListener('keydown', onKey); resolve(v); }
+    function onKey(e) { if (e.key === 'Escape') done(false); }
+    card.querySelector('[data-act="cancel"]').addEventListener('click', () => done(false));
+    card.querySelector('[data-act="ok"]').addEventListener('click', () => done(true));
+    ov.addEventListener('click', (e) => { if (e.target === ov) done(false); });
+    document.addEventListener('keydown', onKey);
+    card.querySelector('[data-act="ok"]').focus();
+  });
+}
+function alertDialog({ title, body }) {
+  return new Promise((resolve) => {
+    const card = el(`
+      <div class="ds-dialog ds-card">
+        <div class="ds-card-title">${esc(title)}</div>
+        <p class="ds-dialog-body">${esc(body || '')}</p>
+        <div class="ds-dialog-actions">
+          <button class="ds-btn ds-btn-primary" data-act="close">${esc(t('dialog.close'))}</button>
+        </div>
+      </div>`);
+    const ov = overlay(card);
+    function done() { ov.remove(); document.removeEventListener('keydown', onKey); resolve(); }
+    function onKey(e) { if (e.key === 'Escape') done(); }
+    card.querySelector('[data-act="close"]').addEventListener('click', done);
+    ov.addEventListener('click', (e) => { if (e.target === ov) done(); });
+    document.addEventListener('keydown', onKey);
+    card.querySelector('[data-act="close"]').focus();
+  });
+}
+
 // Editor-Eingaben → lokalen Zustand aktualisieren
 $('slideType').addEventListener('change', (e) => {
   const s = currentSlide();
@@ -618,11 +666,11 @@ $('optSelfPaced').addEventListener('change', async (e) => {
 });
 
 $('btnArchive').addEventListener('click', async () => {
-  if (!confirm(t('presenter.details.archiveConfirm'))) return;
+  if (!await confirmDialog({ title: t('presenter.details.archive'), body: t('presenter.confirm.archiveBody'), confirmLabel: t('presenter.details.archive') })) return;
   try {
     await api('POST', `/api/presentations/${PRES_ID}/archive`, {}, TOKEN);
     await load(); // Sitzung archiviert + Antworten geleert → neu laden (Verlauf + leere Ergebnisse)
-  } catch { alert(t('presenter.details.archiveFailed')); }
+  } catch { await alertDialog({ title: t('presenter.details.archive'), body: t('presenter.details.archiveFailed') }); }
 });
 
 // --- Branding ---------------------------------------------------------------
@@ -647,17 +695,17 @@ async function saveBrand(patch) {
     if (pres) pres.brand = r.brand;
     refreshBrandUI();
   } catch (e) {
-    if (e.status === 413) alert(t('presenter.brand.tooLarge'));
+    if (e.status === 413) await alertDialog({ title: t('presenter.brand.label'), body: t('presenter.brand.tooLarge') });
   }
 }
 
 $('brandColorInput').addEventListener('change', (e) => saveBrand({ color: e.target.value }));
 $('brandColorReset').addEventListener('click', () => { $('brandColorInput').value = '#E60000'; saveBrand({ color: null }); });
 $('brandLogoRemove').addEventListener('click', () => saveBrand({ logo: null }));
-$('brandLogoFile').addEventListener('change', (e) => {
+$('brandLogoFile').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   if (!file) return;
-  if (file.size > 60 * 1024) { alert(t('presenter.brand.tooLarge')); e.target.value = ''; return; }
+  if (file.size > 60 * 1024) { await alertDialog({ title: t('presenter.brand.label'), body: t('presenter.brand.tooLarge') }); e.target.value = ''; return; }
   const reader = new FileReader();
   reader.onload = () => { saveBrand({ logo: reader.result }); e.target.value = ''; };
   reader.readAsDataURL(file);
@@ -677,8 +725,8 @@ $('btnAddSlide').addEventListener('click', () => {
   scheduleSave();
 });
 
-$('btnDeleteSlide').addEventListener('click', () => {
-  if (!confirm(t('presenter.confirm.deleteSlide'))) return;
+$('btnDeleteSlide').addEventListener('click', async () => {
+  if (!await confirmDialog({ title: t('presenter.slide.delete'), body: t('presenter.confirm.deleteSlideBody'), confirmLabel: t('presenter.slide.delete'), danger: true })) return;
   pres.slides.splice(selectedIdx, 1);
   selectedIdx = Math.max(0, selectedIdx - 1);
   renderSlideList();
@@ -709,7 +757,7 @@ $('btnPptx').addEventListener('click', async () => {
     const pptx = buildPulsPptx(PptxGenJS, pres, latestResults);
     await pptx.writeFile({ fileName: `puls-${pres.code}-${new Date().toISOString().slice(0, 10)}.pptx` });
   } catch (e) {
-    alert(t('presenter.pptxFailed') + e.message);
+    await alertDialog({ title: t('presenter.pptxExport'), body: t('presenter.pptxFailed') + e.message });
   } finally {
     btn.disabled = false;
     btn.textContent = t('presenter.pptxExport');
@@ -717,11 +765,11 @@ $('btnPptx').addEventListener('click', async () => {
 });
 
 $('btnResetSlide').addEventListener('click', async () => {
-  if (!confirm(t('presenter.confirm.resetSlide'))) return;
+  if (!await confirmDialog({ title: t('presenter.slide.resetAnswers'), body: t('presenter.confirm.resetSlideBody'), confirmLabel: t('presenter.slide.resetAnswers'), danger: true })) return;
   await api('POST', `/api/presentations/${PRES_ID}/reset`, { slideId: currentSlide().id }, TOKEN);
 });
 $('btnResetAll').addEventListener('click', async () => {
-  if (!confirm(t('presenter.confirm.resetAll'))) return;
+  if (!await confirmDialog({ title: t('presenter.resetAll'), body: t('presenter.confirm.resetAllBody'), confirmLabel: t('presenter.resetAll'), danger: true })) return;
   await api('POST', `/api/presentations/${PRES_ID}/reset`, {}, TOKEN);
 });
 

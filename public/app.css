@@ -593,3 +593,9 @@ main { flex: 1; width: 100%; }
   font-size: 1.2rem; color: var(--grey-4); cursor: grab; touch-action: none; user-select: none; }
 .ranking-item.dragging { background: var(--surface-alt); }
 .ranking-move { min-width: 44px; min-height: 44px; }
+
+/* Mockup A — In-Style-Dialoge (Ü2) */
+.ds-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
+.ds-dialog { max-width: 440px; width: 100%; box-shadow: var(--shadow-hover); }
+.ds-dialog-body { font-size: 0.95rem; color: var(--grey-5); margin: 0.5rem 0 1.25rem; }
+.ds-dialog-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
