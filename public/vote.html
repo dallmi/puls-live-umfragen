@@ -91,6 +91,7 @@ if (PREVIEW) {
     renderPreview(e.data.slide, e.data.brand);
   });
   if (window.parent && window.parent !== window) window.parent.postMessage({ kind: 'puls-preview-ready' }, location.origin);
+  renderPreview(null);
 } else if (!CODE || CODE.length !== 6) {
   location.replace('/');
 } else {
@@ -102,7 +103,7 @@ function renderPreview(slide, brand) {
   presId = 'preview';
   if (!slide) { root.innerHTML = ''; root.appendChild(el(`<p class="results-hidden">${esc(t('presenter.preview.empty'))}</p>`)); return; }
   applyBrand(brand || null, presId, []);
-  snap = { slide, results: null, resultsHidden: true, votingLocked: false, selfPaced: false, activeIndex: 0, slideCount: 1, slides: [slide], reactions: [], audience: 0 };
+  snap = { slide, brand: brand || null, results: null, resultsHidden: true, votingLocked: false, selfPaced: false, activeIndex: 0, slideCount: 1, slides: [slide], reactions: [], audience: 0 };
   renderedKey = null;
   onSnapshot(snap);
 }
