@@ -130,6 +130,8 @@ const DICT = {
   'presenter.moderation.empty': { de: 'Keine offenen Fragen.', en: 'No pending questions.' },
   'presenter.moderation.approve': { de: 'Freigeben', en: 'Approve' },
   'presenter.moderation.reject': { de: 'Verwerfen', en: 'Reject' },
+  'presenter.moderation.toggleHint': { de: 'Taste M: Fragen prüfen', en: 'Press M to review questions' },
+  'presenter.moderation.visibleWarn': { de: '⚠ Für das Publikum sichtbar', en: '⚠ Visible to the audience' },
   'presenter.access.joinAt': { de: 'Beitreten auf', en: 'Join at' },
   'presenter.join.heading': { de: 'Machen Sie mit — am eigenen Gerät:', en: 'Join in — on your own device:' },
   'presenter.join.start': { de: "Los geht's →", en: "Let's go →" },

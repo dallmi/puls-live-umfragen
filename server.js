@@ -32,6 +32,10 @@ const MAX_PRESENTATIONS = 2000;              // globale Obergrenze; älteste ina
 const MAX_PARTICIPANTS_PER_SLIDE = 5000;     // je Folie — großzügig für Townhalls, aber begrenzt
 const PRESENTATION_TTL_MS = 60 * 24 * 60 * 60 * 1000; // 60 Tage ohne Aktivität → Aufräumen
 const CREATE_RATE = { windowMs: 60 * 60 * 1000, max: 30 }; // Neuanlage: 30 pro Stunde je IP
+// Öffentliche Endpunkte (join/answers/upvote/react/identify): grobes Limit je IP
+// und Endpunkt. Bremst Code-Brute-Force und Skript-Fluten, bleibt aber großzügig,
+// weil ganze Publika hinter EINER NAT-IP hängen können. Polling-Snapshot bleibt frei.
+const PUBLIC_RATE = { windowMs: 10 * 1000, max: 60 };
 
 // ---------------------------------------------------------------------------
 // Store & Persistenz
@@ -179,7 +183,19 @@ function createPresentation(title) {
 
 function clampText(v, max = MAX_TEXT_LEN) {
   if (typeof v !== 'string') return '';
-  return v.trim().slice(0, max);
+  // XML-1.0-unzulässige Steuerzeichen entfernen (\t\n\r bleiben) — sonst
+  // zerstört ein eingefügtes Zeichen den XLSX-Export.
+  return v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').trim().slice(0, max);
+}
+
+function answersRemainValid(prev, next) {
+  if (!prev || prev.type !== next.type) return false;
+  if (['choice', 'ranking', 'points', 'quiz'].includes(next.type)) {
+    if ((prev.options || []).length !== (next.options || []).length) return false;
+  }
+  if (next.type === 'quiz' && prev.correct !== next.correct) return false;
+  if (next.type === 'scale' && (prev.min !== next.min || prev.max !== next.max)) return false;
+  return true;
 }
 
 function sanitizeSlide(input) {
@@ -713,7 +729,7 @@ function buildZip(files) {
 }
 
 function xmlEsc(s) {
-  return String(s ?? '').replace(/[&<>"']/g, (c) => (
+  return String(s ?? '').replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '').replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&apos;' }[c]
   ));
 }
@@ -1090,6 +1106,7 @@ async function handleApi(req, res, url) {
   // GET /api/join/:code — Präsentation per Code finden (Publikum)
   let m = p.match(/^\/api\/join\/(\d{6})$/);
   if (m && method === 'GET') {
+    if (!rateLimit(`join:${clientIp(req)}`, PUBLIC_RATE.windowMs, PUBLIC_RATE.max)) return sendJSON(res, 429, { error: 'rate_limited' });
     const pres = Object.values(store.presentations).find((x) => x.code === m[1]);
     if (!pres) return sendJSON(res, 404, { error: 'code_unknown' });
     return sendJSON(res, 200, { id: pres.id, ...snapshot(pres.id) });
@@ -1150,6 +1167,7 @@ async function handleApi(req, res, url) {
 
   // POST /api/presentations/:id/answers — Antwort abgeben (Publikum)
   if (sub === '/answers' && method === 'POST') {
+    if (!rateLimit(`answers:${clientIp(req)}`, PUBLIC_RATE.windowMs, PUBLIC_RATE.max)) return sendJSON(res, 429, { error: 'rate_limited' });
     const body = await readBody(req);
     const slide = pres.slides.find((s) => s.id === body.slideId);
     if (!slide) return sendJSON(res, 404, { error: 'slide_unknown' });
@@ -1172,6 +1190,7 @@ async function handleApi(req, res, url) {
 
   // POST /api/presentations/:id/upvote — Q&A-Frage hochwählen
   if (sub === '/upvote' && method === 'POST') {
+    if (!rateLimit(`upvote:${clientIp(req)}`, PUBLIC_RATE.windowMs, PUBLIC_RATE.max)) return sendJSON(res, 429, { error: 'rate_limited' });
     const body = await readBody(req);
     const slide = pres.slides.find((s) => s.id === body.slideId);
     if (!slide || slide.type !== 'qa') return sendJSON(res, 404, { error: 'slide_unknown' });
@@ -1201,6 +1220,7 @@ async function handleApi(req, res, url) {
 
   // POST /api/presentations/:id/react — Emoji-Reaktion (Publikum, ephemer, nicht persistiert)
   if (sub === '/react' && method === 'POST') {
+    if (!rateLimit(`react:${clientIp(req)}`, PUBLIC_RATE.windowMs, PUBLIC_RATE.max)) return sendJSON(res, 429, { error: 'rate_limited' });
     const body = await readBody(req);
     const emoji = String(body.emoji || '');
     if (!REACTIONS.includes(emoji)) return sendJSON(res, 400, { error: 'bad_emoji' });
@@ -1222,6 +1242,7 @@ async function handleApi(req, res, url) {
 
   // POST /api/presentations/:id/identify — Anzeigenamen setzen (Publikum, nur wenn aktiviert)
   if (sub === '/identify' && method === 'POST') {
+    if (!rateLimit(`identify:${clientIp(req)}`, PUBLIC_RATE.windowMs, PUBLIC_RATE.max)) return sendJSON(res, 429, { error: 'rate_limited' });
     const body = await readBody(req);
     if (!pres.collectNames) return sendJSON(res, 409, { error: 'names_disabled' });
     const pid = clampText(String(body.participantId || ''), 64);
@@ -1325,7 +1346,9 @@ async function handleApi(req, res, url) {
       const slide = sanitizeSlide(input);
       // Vorhandene Antworten (und Quiz-Timer) behalten, wenn die Folie schon existierte
       const prev = existing.get(slide.id);
-      slide.answers = prev ? prev.answers : {};
+      // Antworten nur behalten, wenn nach der Bearbeitung noch gültig (sonst
+      // zeigten indexbasierte Stimmen auf falsche Optionen → verfälschte Zahlen).
+      slide.answers = (prev && answersRemainValid(prev, slide)) ? prev.answers : {};
       if (prev && prev.startedAt && slide.type === 'quiz') slide.startedAt = prev.startedAt;
       return slide;
     });
