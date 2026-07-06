@@ -104,8 +104,6 @@
           <div class="ds-card-title">
             <span id="slideEditorTitle" data-i18n="common.slideFallback">Folie</span>
             <span style="display:flex; gap:0.4rem;">
-              <button class="ds-btn" id="btnMoveUp" data-i18n-title="presenter.slide.moveUp" title="Nach oben">↑</button>
-              <button class="ds-btn" id="btnMoveDown" data-i18n-title="presenter.slide.moveDown" title="Nach unten">↓</button>
               <button class="ds-btn" id="btnResetSlide" data-i18n="presenter.slide.resetAnswers">Antworten zurücksetzen</button>
               <button class="ds-btn ds-btn-danger" id="btnDeleteSlide" data-i18n="presenter.slide.delete">Löschen</button>
             </span>
@@ -513,19 +511,54 @@ function renderSlideList() {
   $('slideEditor').hidden = pres.slides.length === 0;
   pres.slides.forEach((s, i) => {
     const item = el(`
-      <button class="slide-item${i === selectedIdx ? ' active' : ''}">
-        <span class="num">${i + 1}</span>
-        <span class="meta">
-          <span class="q">${esc(s.question || typeMeta(s.type).label || t('common.slideFallback'))}</span><br>
-          <span class="ty">${typeMeta(s.type).label || s.type}</span>
-        </span>
-      </button>`);
-    item.addEventListener('click', () => {
-      selectedIdx = i;
-      renderSlideList();
-      renderSlideEditor();
-    });
+      <div class="slide-item${i === selectedIdx ? ' active' : ''}">
+        <span class="slide-handle" role="button" aria-label="${esc(t('presenter.slide.moveUp'))}" title="${esc(t('presenter.slide.moveUp'))}">⠿</span>
+        <button class="slide-open" type="button">
+          <span class="num">${i + 1}</span>
+          <span class="meta"><span class="q">${esc(s.question || typeMeta(s.type).label || t('common.slideFallback'))}</span><br><span class="ty">${esc(typeMeta(s.type).label || s.type)}</span></span>
+        </button>
+        <span class="slide-actions"></span>
+      </div>`);
+    item.querySelector('.slide-open').addEventListener('click', () => { selectedIdx = i; renderSlideList(); renderSlideEditor(); });
+    item.querySelector('.slide-actions').appendChild(overflowMenu([
+      { label: t('presenter.slide.duplicate'), onClick: () => duplicateSlide(i) },
+      { label: t('presenter.slide.delete'), danger: true, onClick: () => { selectedIdx = i; $('btnDeleteSlide').click(); } },
+    ]));
+    attachSlideDrag(item, i);
     list.appendChild(item);
+  });
+}
+
+function duplicateSlide(i) {
+  const copy = JSON.parse(JSON.stringify(pres.slides[i]));
+  copy.id = crypto.randomUUID();
+  pres.slides.splice(i + 1, 0, copy);
+  selectedIdx = i + 1;
+  renderSlideList(); renderSlideEditor(); scheduleSave();
+}
+
+function attachSlideDrag(item, index) {
+  const handle = item.querySelector('.slide-handle');
+  handle.addEventListener('pointerdown', (e) => {
+    e.preventDefault();
+    const startY = e.clientY;
+    const rowH = item.getBoundingClientRect().height + 6;
+    let curPos = index;
+    item.classList.add('dragging');
+    function move(ev) {
+      const target = Math.max(0, Math.min(pres.slides.length - 1, index + Math.round((ev.clientY - startY) / rowH)));
+      if (target !== curPos) {
+        const moved = pres.slides.splice(curPos, 1)[0];
+        pres.slides.splice(target, 0, moved);
+        if (selectedIdx === curPos) selectedIdx = target;
+        curPos = target;
+        renderSlideList();
+      }
+    }
+    function cleanup() { document.removeEventListener('pointermove', move); document.removeEventListener('pointerup', cleanup); document.removeEventListener('pointercancel', cleanup); item.classList.remove('dragging'); scheduleSave(); }
+    document.addEventListener('pointermove', move);
+    document.addEventListener('pointerup', cleanup);
+    document.addEventListener('pointercancel', cleanup);
   });
 }
 
@@ -825,18 +858,6 @@ $('btnDeleteSlide').addEventListener('click', async () => {
   renderSlideEditor();
   scheduleSave();
 });
-
-$('btnMoveUp').addEventListener('click', () => moveSlide(-1));
-$('btnMoveDown').addEventListener('click', () => moveSlide(1));
-function moveSlide(delta) {
-  const j = selectedIdx + delta;
-  if (j < 0 || j >= pres.slides.length) return;
-  [pres.slides[selectedIdx], pres.slides[j]] = [pres.slides[j], pres.slides[selectedIdx]];
-  selectedIdx = j;
-  renderSlideList();
-  renderSlideEditor();
-  scheduleSave();
-}
 
 // Editor-Kopf — Gefahraktionen ins Overflow-Menü (Mockup A, E4)
 $('slideEditorTitle').parentElement.appendChild(

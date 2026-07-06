@@ -635,3 +635,10 @@ body.is-preview .ds-header, body.is-preview .footer-note, body.is-preview #react
 .overflow-item { text-align: left; background: none; border: none; padding: 0.5rem 0.7rem; cursor: pointer; font: inherit; color: var(--grey-6); border-radius: var(--radius); }
 .overflow-item:hover { background: var(--surface); }
 .overflow-item.danger { color: var(--danger); }
+
+/* Mockup A — Folienliste Drag + Aktionen (E5) */
+.slide-item { position: relative; }
+.slide-item .slide-handle { flex-shrink: 0; width: 28px; min-height: 44px; display: flex; align-items: center; justify-content: center; color: var(--grey-4); cursor: grab; touch-action: none; user-select: none; }
+.slide-item .slide-open { flex: 1; display: flex; align-items: center; gap: 0.6rem; background: none; border: none; text-align: left; cursor: pointer; font: inherit; padding: 0; }
+.slide-item.dragging { background: var(--surface-alt); }
+.slide-item .slide-actions { flex-shrink: 0; }
