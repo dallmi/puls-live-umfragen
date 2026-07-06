@@ -208,6 +208,14 @@
           <div id="editorTrends" hidden></div>
         </div>
       </section>
+
+      <aside class="preview-col">
+        <div class="ds-card">
+          <div class="ds-card-title" data-i18n="presenter.preview.title">Live-Vorschau</div>
+          <div class="phone-frame"><iframe id="previewFrame" src="/vote.html?preview=1" title="Live-Vorschau"></iframe></div>
+          <div class="ds-card-subtitle" data-i18n="presenter.preview.subtitle">Aktualisiert sich beim Tippen — Publikums-Ansicht</div>
+        </div>
+      </aside>
     </div>
   </div>
 </main>
@@ -310,6 +318,24 @@ async function resolvePublicBase() {
 }
 
 const $ = (id) => document.getElementById(id);
+
+// ---------------------------------------------------------------------------
+// Live-Vorschau (Mockup A, E2) — postet die aktuelle Folie an das Vorschau-iframe
+// ---------------------------------------------------------------------------
+
+let previewReady = false;
+let previewTimer = null;
+window.addEventListener('message', (e) => {
+  if (e.origin !== location.origin) return;
+  if (e.data && e.data.kind === 'puls-preview-ready') { previewReady = true; pushPreview(); }
+});
+function pushPreview() {
+  const frame = $('previewFrame');
+  if (!frame || !frame.contentWindow || !previewReady || !pres) return;
+  const s = currentSlide();
+  frame.contentWindow.postMessage({ kind: 'puls-preview', slide: s ? JSON.parse(JSON.stringify(s)) : null, brand: pres ? pres.brand : null }, location.origin);
+}
+function schedulePreview() { clearTimeout(previewTimer); previewTimer = setTimeout(pushPreview, 200); }
 
 // ---------------------------------------------------------------------------
 // Laden & Speichern
@@ -436,6 +462,7 @@ function scheduleSave() {
   $('saveState').classList.remove('saved');
   clearTimeout(saveTimer);
   saveTimer = setTimeout(saveNow, 600);
+  schedulePreview();
 }
 
 async function saveNow() {
@@ -520,6 +547,7 @@ function renderSlideEditor() {
   if (s.type === 'info') $('optInfoText').value = s.text || '';
   if (s.type === 'qa') $('optModerated').checked = !!s.moderated;
   renderResultsPanel();
+  pushPreview();
 }
 
 // Quiz: „Richtige Antwort"-Auswahl aus den aktuellen Optionen aufbauen

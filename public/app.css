@@ -100,7 +100,7 @@ main { flex: 1; width: 100%; }
 
 /* --- Presenter: Editor ------------------------------------------------------ */
 .editor-layout {
-  display: grid; grid-template-columns: 280px 1fr; gap: 1.25rem;
+  display: grid; grid-template-columns: 280px 1fr 320px; gap: 1.25rem;
   align-items: start; padding: 1.25rem 0 2rem;
 }
 @media (max-width: 900px) { .editor-layout { grid-template-columns: 1fr; } }
@@ -612,3 +612,10 @@ main { flex: 1; width: 100%; }
 .type-current-icon svg { width: 22px; height: 22px; color: var(--primary); }
 .type-current-label { font-weight: 600; color: var(--grey-6); margin-right: auto; }
 .ds-dialog-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+
+/* Mockup A — Live-Vorschau (E2) */
+.preview-col { position: sticky; top: 1rem; }
+.phone-frame { width: 100%; max-width: 320px; margin: 0.5rem auto; border: 10px solid var(--grey-6); border-radius: 22px; overflow: hidden; background: var(--white); aspect-ratio: 320 / 620; }
+.phone-frame iframe { width: 100%; height: 100%; border: 0; display: block; }
+body.is-preview { background: var(--white); }
+body.is-preview .ds-header, body.is-preview .footer-note, body.is-preview #reactionBar { display: none; }
