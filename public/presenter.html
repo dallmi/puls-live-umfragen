@@ -48,8 +48,12 @@
       </aside>
 
       <section>
-        <div class="ds-card" style="margin-bottom: 1rem;">
-          <div class="ds-card-title" data-i18n="presenter.details.title">Präsentation</div>
+        <div class="ds-card" id="settingsCard" style="margin-bottom: 1rem;">
+          <button class="ds-card-title settings-toggle" id="settingsToggle" type="button" aria-expanded="false">
+            <span data-i18n="presenter.settings.toggle">Präsentation & Einstellungen</span>
+            <span class="settings-caret" aria-hidden="true">▾</span>
+          </button>
+          <div class="settings-body" id="settingsBody" hidden>
           <div class="field">
             <label for="presTitle" data-i18n="field.title.label">Titel</label>
             <input type="text" id="presTitle" maxlength="120">
@@ -92,6 +96,7 @@
               <button class="ds-btn ds-btn-danger" id="brandLogoRemove" type="button" hidden data-i18n="presenter.brand.logoRemove">Logo entfernen</button>
             </div>
             <div class="help" id="brandHelp" data-i18n="presenter.brand.help">Erscheint für das Publikum und im Präsentationsmodus. Logo max. ~60 KB.</div>
+          </div>
           </div>
         </div>
 
@@ -733,6 +738,16 @@ $('btnArchive').addEventListener('click', async () => {
     await load(); // Sitzung archiviert + Antworten geleert → neu laden (Verlauf + leere Ergebnisse)
   } catch { await alertDialog({ title: t('presenter.details.archive'), body: t('presenter.details.archiveFailed') }); }
 });
+
+// --- Einstellungskarte einklappen (Mockup A, E3) -----------------------------
+(function initSettingsToggle() {
+  const open = sessionStorage.getItem('puls.settingsOpen') === '1';
+  const body = document.getElementById('settingsBody');
+  const btn = document.getElementById('settingsToggle');
+  function apply(v) { body.hidden = !v; btn.setAttribute('aria-expanded', String(v)); btn.querySelector('.settings-caret').textContent = v ? '▴' : '▾'; sessionStorage.setItem('puls.settingsOpen', v ? '1' : '0'); }
+  apply(open);
+  btn.addEventListener('click', () => apply(body.hidden));
+})();
 
 // --- Branding ---------------------------------------------------------------
 function refreshBrandUI() {
