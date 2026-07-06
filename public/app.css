@@ -115,7 +115,7 @@ main { flex: 1; width: 100%; }
 .slide-item:hover { background: var(--surface); }
 .slide-item.active { border-color: var(--primary); border-left: 3px solid var(--primary); }
 .slide-item .num { font-size: 0.75rem; color: var(--grey-4); min-width: 1.2em; font-variant-numeric: tabular-nums; }
-.slide-item .meta { overflow: hidden; }
+.slide-item .meta { overflow: hidden; min-width: 0; }
 .slide-item .q {
   font-size: 0.82rem; font-weight: 600; color: var(--grey-6);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -639,7 +639,7 @@ body.is-preview .ds-header, body.is-preview .footer-note, body.is-preview #react
 /* Mockup A — Folienliste Drag + Aktionen (E5) */
 .slide-item { position: relative; }
 .slide-item .slide-handle { flex-shrink: 0; width: 28px; min-height: 44px; display: flex; align-items: center; justify-content: center; color: var(--grey-4); cursor: grab; touch-action: none; user-select: none; }
-.slide-item .slide-open { flex: 1; display: flex; align-items: center; gap: 0.6rem; background: none; border: none; text-align: left; cursor: pointer; font: inherit; padding: 0; }
+.slide-item .slide-open { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.6rem; background: none; border: none; text-align: left; cursor: pointer; font: inherit; padding: 0; }
 .slide-item.dragging { background: var(--surface-alt); }
 .slide-item .slide-actions { flex-shrink: 0; }
 
