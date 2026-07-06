@@ -405,6 +405,7 @@ async function load() {
 // --- Ergebnis-Panel im Editor ------------------------------------------------
 let latestResults = {};      // slideId -> results
 let resultsTimer = null;
+let lastResultsSig = null;
 
 function scheduleResultsRefresh() {
   clearTimeout(resultsTimer);
@@ -426,10 +427,23 @@ function renderResultsPanel() {
   if (!slide || slide.type === 'info') { card.hidden = true; return; }
   card.hidden = false;
   const results = latestResults[slide.id];
-  if (!results) {
-    $('editorResults').innerHTML = `<p class="results-empty">${t('presenter.results.empty')}</p>`;
-  } else {
-    renderResults($('editorResults'), slide, results, slide.type === 'quiz' ? { leaderboard: pres && pres.leaderboard, correctIndex: slide.correct } : {});
+  // Nur neu zeichnen, wenn sich am Chart wirklich etwas geändert hat. Sonst würde
+  // jeder Poll (serverlos/Vercel: alle ~1,5 s ohne SSE) das Ergebnis-Panel neu
+  // aufbauen und die Balken von 0 an animieren = Flackern.
+  const sig = JSON.stringify({
+    id: slide.id, type: slide.type, options: slide.options,
+    min: slide.min, max: slide.max, minLabel: slide.minLabel, maxLabel: slide.maxLabel,
+    correct: slide.correct, lang: document.documentElement.lang,
+    lb: slide.type === 'quiz' && pres ? pres.leaderboard : null,
+    results: results || null,
+  });
+  if (sig !== lastResultsSig) {
+    lastResultsSig = sig;
+    if (!results) {
+      $('editorResults').innerHTML = `<p class="results-empty">${t('presenter.results.empty')}</p>`;
+    } else {
+      renderResults($('editorResults'), slide, results, slide.type === 'quiz' ? { leaderboard: pres && pres.leaderboard, correctIndex: slide.correct } : {});
+    }
   }
   renderTrends(slide);
 }
@@ -974,10 +988,12 @@ $('btnToggleLock').addEventListener('click', () =>
 $('btnStartSlides').addEventListener('click', showSlides);
 $('presentJoinBar').addEventListener('click', showJoinStage);
 
+let lastPresentSig = null;
 async function enterPresent() {
   await saveNow();
   presenting = true;
   joinStage = true;
+  lastPresentSig = null; // beim Betreten immer frisch zeichnen
   $('presentMode').hidden = false;
   document.body.style.overflow = 'hidden';
   const joinUrl = publicBase.replace(/^https?:\/\//, '');
@@ -1083,7 +1099,18 @@ function renderPresent(snap) {
     const full = pres.slides.find((s) => s.id === snap.slide.id);
     if (full && Number.isInteger(full.correct)) correctIndex = full.correct;
   }
-  renderResults($('presentResults'), snap.slide, snap.results, { leaderboard: snap.leaderboard, correctIndex });
+  // Nur neu zeichnen, wenn sich am Chart etwas geändert hat — sonst flackert er
+  // auf dem Beamer bei jedem Poll (serverlos: ~1,5 s ohne SSE).
+  const presentSig = JSON.stringify({
+    id: snap.slide.id, type: snap.slide.type, options: snap.slide.options,
+    min: snap.slide.min, max: snap.slide.max, minLabel: snap.slide.minLabel, maxLabel: snap.slide.maxLabel,
+    correctIndex, lang: document.documentElement.lang,
+    lb: snap.leaderboard || null, results: snap.results || null,
+  });
+  if (presentSig !== lastPresentSig) {
+    lastPresentSig = presentSig;
+    renderResults($('presentResults'), snap.slide, snap.results, { leaderboard: snap.leaderboard, correctIndex });
+  }
   refreshModeration(snap);
 }
 
