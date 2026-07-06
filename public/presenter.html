@@ -527,9 +527,11 @@ async function saveNow() {
     lastSaveState = 'saved';
     $('saveState').textContent = t('presenter.save.saved');
     $('saveState').classList.add('saved');
+    return true;
   } catch {
     lastSaveState = 'failed';
     $('saveState').textContent = t('presenter.save.failed');
+    return false;
   }
 }
 
@@ -691,7 +693,11 @@ function renderOptionRows() {
       if (s.type === 'quiz') refreshQuizCorrect();
       scheduleSave();
     });
-    row.querySelector('button').addEventListener('click', () => {
+    row.querySelector('button').addEventListener('click', async () => {
+      // Beim Löschen der als richtig markierten Quiz-Option aktiv nachfragen (H30).
+      if (s.type === 'quiz' && Number.isInteger(s.correct) && s.correct === i && s.options.length > 1) {
+        if (!await confirmDialog({ title: t('presenter.quiz.deleteCorrectTitle'), body: t('presenter.quiz.deleteCorrectWarn'), confirmLabel: t('presenter.quiz.deleteCorrectConfirm'), danger: true })) return;
+      }
       s.options.splice(i, 1);
       // Quiz: „richtige Antwort" der verschobenen/gelöschten Option nachführen
       if (s.type === 'quiz' && Number.isInteger(s.correct)) {
@@ -996,7 +1002,17 @@ let lastPresentSig = null;
 let moderationVisible = false; // Fragetext auf der Bühne verdeckt, bis per „M" aufgedeckt
 let lastModPending = [];
 async function enterPresent() {
-  await saveNow();
+  // Vollbild synchron im Klick-Gesten-Kontext anfordern — nach einem await
+  // würde der Browser requestFullscreen sonst blockieren (H13).
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+  // Vor dem Live-Schalten sicher speichern; bei Fehlschlag warnen statt stille alte Folien zu zeigen (H9).
+  if (!await saveNow()) {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    await alertDialog({ title: t('presenter.present'), body: t('presenter.error.saveBeforePresent') });
+    return;
+  }
   presenting = true;
   joinStage = true;
   lastPresentSig = null; // beim Betreten immer frisch zeichnen
@@ -1013,9 +1029,6 @@ async function enterPresent() {
   applyBrand(pres.brand, PRES_ID, [$('presentBrandLogo')]);
   applyStagePresence();
   if (lastSnapshot) onSnapshot(lastSnapshot);
-  if (document.documentElement.requestFullscreen) {
-    document.documentElement.requestFullscreen().catch(() => {});
-  }
 }
 
 function applyStagePresence() {
@@ -1045,8 +1058,11 @@ function navigate(delta) {
 }
 
 async function setState(patch) {
-  try { await api('POST', `/api/presentations/${PRES_ID}/state`, patch, TOKEN); }
-  catch { /* nächster Snapshot korrigiert die Anzeige */ }
+  try {
+    await api('POST', `/api/presentations/${PRES_ID}/state`, patch, TOKEN);
+    // Sofortige Rückmeldung im Präsentationsmodus, statt auf den nächsten Poll zu warten (H12).
+    if (presenting) { const snap = await api('GET', `/api/presentations/${PRES_ID}`); onSnapshot(snap); }
+  } catch { /* nächster Snapshot korrigiert die Anzeige */ }
 }
 
 function onSnapshot(snap) {

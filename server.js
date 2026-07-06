@@ -1342,6 +1342,7 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     if (!Array.isArray(body.slides)) return sendJSON(res, 400, { error: 'slides_missing' });
     const existing = new Map(pres.slides.map((s) => [s.id, s]));
+    const prevActiveId = (pres.slides[pres.activeIndex] || {}).id;
     pres.slides = body.slides.slice(0, 50).map((input) => {
       const slide = sanitizeSlide(input);
       // Vorhandene Antworten (und Quiz-Timer) behalten, wenn die Folie schon existierte
@@ -1352,7 +1353,9 @@ async function handleApi(req, res, url) {
       if (prev && prev.startedAt && slide.type === 'quiz') slide.startedAt = prev.startedAt;
       return slide;
     });
-    pres.activeIndex = Math.min(pres.activeIndex, Math.max(0, pres.slides.length - 1));
+    // Aktive Folie anhand ihrer ID neu auflösen (nach Umsortieren/Löschen), nicht nur den Index kappen (H24).
+    const _ai = prevActiveId ? pres.slides.findIndex((s) => s.id === prevActiveId) : -1;
+    pres.activeIndex = _ai >= 0 ? _ai : Math.min(pres.activeIndex, Math.max(0, pres.slides.length - 1));
     touch(pres);
     saveStore();
     broadcast(pres.id);

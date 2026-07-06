@@ -125,7 +125,9 @@ async function withPresLock(id, fn, tries = 14) {
     }
     await sleep(15 + i * 8); // ansteigender Backoff (~0,7 s gesamt)
   }
-  return fn(); // Lock nicht bekommen → trotzdem ausführen (seltener verlorener Schreibvorgang > Hänger)
+  // Lock trotz Backoff nicht bekommen → ablehnen statt ungeschützt zu schreiben (verhindert
+  // garantierten Stimmenverlust unter Last). Der Client sieht einen Fehler und kann erneut senden (H25).
+  return { s: 503, j: { error: 'busy' } };
 }
 
 // ---------------------------------------------------------------------------
@@ -514,6 +516,7 @@ export default async function handler(req, res) {
         const p = await getPres(pres.id);
         if (!p) return { s: 404, j: { error: 'not_found' } };
         const existing = new Map(p.slides.map((s) => [s.id, s]));
+        const prevActiveId = (p.slides[p.activeIndex] || {}).id;
         p.slides = body.slides.slice(0, 50).map((input) => {
           const slide = sanitizeSlide(input);
           const prev = existing.get(slide.id);
@@ -523,7 +526,9 @@ export default async function handler(req, res) {
           if (prev && prev.startedAt && slide.type === 'quiz') slide.startedAt = prev.startedAt;
           return slide;
         });
-        p.activeIndex = Math.min(p.activeIndex, Math.max(0, p.slides.length - 1));
+        // Aktive Folie anhand ihrer ID neu auflösen (nach Umsortieren/Löschen), nicht nur den Index kappen (H24).
+        const _ai = prevActiveId ? p.slides.findIndex((s) => s.id === prevActiveId) : -1;
+        p.activeIndex = _ai >= 0 ? _ai : Math.min(p.activeIndex, Math.max(0, p.slides.length - 1));
         p.lastActivity = Date.now();
         await putPres(p);
         return { s: 200, j: { ok: true, slides: p.slides.map(publicSlide) } };

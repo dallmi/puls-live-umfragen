@@ -109,6 +109,10 @@ document.getElementById('joinForm').addEventListener('submit', (e) => {
   attemptJoin(document.getElementById('joinCode').value.replace(/\D/g, ''));
 });
 
+// Nach Zurück-Navigation aus dem bfcache den Sperr-Zustand zurücksetzen,
+// sonst bleibt „Beitreten" nach einmaligem Beitritt dauerhaft deaktiviert (H1).
+window.addEventListener('pageshow', (e) => { if (e.persisted) { joining = false; lastAttempt = ''; } });
+
 // Eingabe formatieren ("123 456") und bei sechs Ziffern automatisch weiter (L2)
 document.getElementById('joinCode').addEventListener('input', (e) => {
   const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
