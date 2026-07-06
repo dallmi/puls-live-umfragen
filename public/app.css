@@ -598,4 +598,17 @@ main { flex: 1; width: 100%; }
 .ds-overlay { position: fixed; inset: 0; z-index: 1000; background: rgba(0,0,0,0.35); display: flex; align-items: center; justify-content: center; padding: 1.5rem; }
 .ds-dialog { max-width: 440px; width: 100%; box-shadow: var(--shadow-hover); }
 .ds-dialog-body { font-size: 0.95rem; color: var(--grey-5); margin: 0.5rem 0 1.25rem; }
+
+/* Mockup A — Typ-Galerie (E1) */
+.type-gallery-card { max-width: 640px; }
+.type-gallery { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-top: 0.5rem; }
+@media (max-width: 560px) { .type-gallery { grid-template-columns: repeat(2, 1fr); } }
+.type-tile { display: flex; flex-direction: column; align-items: flex-start; gap: 0.3rem; text-align: left; padding: 0.7rem; background: var(--white); border: 1px solid var(--grey-1); border-radius: var(--radius); cursor: pointer; font-family: var(--font-sans); }
+.type-tile:hover { border-color: var(--primary); }
+.tt-icon svg { width: 28px; height: 28px; color: var(--primary); }
+.tt-label { font-size: 0.9rem; font-weight: 600; color: var(--grey-6); }
+.tt-hint { font-size: 0.78rem; color: var(--grey-4); line-height: 1.25; }
+.type-current { display: flex; align-items: center; gap: 0.6rem; }
+.type-current-icon svg { width: 22px; height: 22px; color: var(--primary); }
+.type-current-label { font-weight: 600; color: var(--grey-6); margin-right: auto; }
 .ds-dialog-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }

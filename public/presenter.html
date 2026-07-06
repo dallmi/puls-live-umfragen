@@ -107,8 +107,12 @@
           </div>
 
           <div class="field">
-            <label for="slideType" data-i18n="presenter.field.type">Folientyp</label>
-            <select id="slideType"></select>
+            <label data-i18n="presenter.field.type">Folientyp</label>
+            <div class="type-current">
+              <span class="type-current-icon" id="typeCurrentIcon"></span>
+              <span class="type-current-label" id="typeCurrentLabel"></span>
+              <button class="ds-btn" id="btnChangeType" type="button" data-i18n="presenter.slide.changeType">Typ ändern</button>
+            </div>
             <div class="help" id="typeHint"></div>
           </div>
 
@@ -486,10 +490,8 @@ function renderSlideEditor() {
   if (!s) return;
   $('slideEditorTitle').textContent = t('common.slidePosition', { n: selectedIdx + 1, total: pres.slides.length });
 
-  const typeSel = $('slideType');
-  typeSel.innerHTML = SLIDE_TYPES
-    .map((v) => `<option value="${v}"${v === s.type ? ' selected' : ''}>${typeMeta(v).label}</option>`)
-    .join('');
+  $('typeCurrentIcon').innerHTML = typeIcon(s.type);
+  $('typeCurrentLabel').textContent = typeMeta(s.type).label;
   $('typeHint').textContent = typeMeta(s.type).hint || '';
   $('slideQuestion').value = s.question || '';
 
@@ -611,20 +613,51 @@ function alertDialog({ title, body }) {
   });
 }
 
+// --- Typ-Galerie (Mockup A, E1) ---------------------------------------------
+function applyTypeDefaults(s, type) {
+  s.type = type;
+  if ((type === 'choice' || type === 'ranking' || type === 'points' || type === 'quiz') && !Array.isArray(s.options)) s.options = ['', ''];
+  if (type === 'quiz' && !Number.isInteger(s.correct)) s.correct = 0;
+  if (type === 'wordcloud' && !s.maxWords) s.maxWords = 1;
+  if (type === 'scale') { s.max = s.max || 5; s.min = 1; s.minLabel = s.minLabel || ''; s.maxLabel = s.maxLabel || ''; }
+}
+
+function typeIcon(type) {
+  const p = 'stroke="currentColor" stroke-width="1.6" fill="none" stroke-linecap="round"';
+  const icons = {
+    choice: '<circle cx="5" cy="7" r="2" fill="currentColor" stroke="none"/><line x1="9" y1="7" x2="20" y2="7"/><circle cx="5" cy="15" r="2"/><line x1="9" y1="15" x2="20" y2="15"/>',
+    wordcloud: '<text x="2" y="10" font-size="8" fill="currentColor" stroke="none">Aa</text><text x="12" y="17" font-size="6" fill="currentColor" stroke="none">bb</text>',
+    open: '<rect x="3" y="4" width="18" height="14" rx="1"/><line x1="6" y1="8" x2="16" y2="8"/><line x1="6" y1="12" x2="13" y2="12"/>',
+    scale: '<line x1="3" y1="11" x2="21" y2="11"/><circle cx="15" cy="11" r="2.5" fill="currentColor" stroke="none"/>',
+    ranking: '<line x1="7" y1="6" x2="20" y2="6"/><line x1="7" y1="11" x2="20" y2="11"/><line x1="7" y1="16" x2="20" y2="16"/><text x="2" y="8" font-size="6" fill="currentColor" stroke="none">1</text><text x="2" y="13" font-size="6" fill="currentColor" stroke="none">2</text><text x="2" y="18" font-size="6" fill="currentColor" stroke="none">3</text>',
+    points: '<rect x="3" y="12" width="4" height="7"/><rect x="10" y="7" width="4" height="12"/><rect x="17" y="10" width="4" height="9"/>',
+    quiz: '<circle cx="12" cy="12" r="9"/><path d="M9 9a3 3 0 1 1 4 2.8c-.8.4-1 .8-1 1.7" ${p}/><circle cx="12" cy="17" r="0.8" fill="currentColor" stroke="none"/>',
+    qa: '<path d="M4 5h16v10H10l-4 4v-4H4z"/>',
+    info: '<circle cx="12" cy="12" r="9"/><line x1="12" y1="11" x2="12" y2="16"/><circle cx="12" cy="8" r="0.9" fill="currentColor" stroke="none"/>',
+  };
+  return `<svg viewBox="0 0 24 24" ${p} aria-hidden="true">${icons[type] || ''}</svg>`;
+}
+
+function openTypeGallery({ title, onPick }) {
+  const card = el(`<div class="ds-dialog ds-card type-gallery-card"><div class="ds-card-title">${esc(title)}</div><div class="type-gallery"></div></div>`);
+  const grid = card.querySelector('.type-gallery');
+  SLIDE_TYPES.forEach((type) => {
+    const tile = el(`<button class="type-tile"><span class="tt-icon">${typeIcon(type)}</span><span class="tt-label">${esc(typeMeta(type).label)}</span><span class="tt-hint">${esc(typeMeta(type).hint || '')}</span></button>`);
+    tile.addEventListener('click', () => { ov.remove(); document.removeEventListener('keydown', onKey); onPick(type); });
+    grid.appendChild(tile);
+  });
+  const ov = overlay(card);
+  function onKey(e) { if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', onKey); } }
+  ov.addEventListener('click', (e) => { if (e.target === ov) { ov.remove(); document.removeEventListener('keydown', onKey); } });
+  document.addEventListener('keydown', onKey);
+}
+
 // Editor-Eingaben → lokalen Zustand aktualisieren
-$('slideType').addEventListener('change', (e) => {
-  const s = currentSlide();
-  s.type = e.target.value;
-  if ((s.type === 'choice' || s.type === 'ranking' || s.type === 'points' || s.type === 'quiz') && !Array.isArray(s.options)) s.options = ['', ''];
-  if (s.type === 'quiz' && !Number.isInteger(s.correct)) s.correct = 0;
-  if (s.type === 'wordcloud' && !s.maxWords) s.maxWords = 1;
-  if (s.type === 'scale') {
-    s.max = s.max || 5; s.min = 1;
-    s.minLabel = s.minLabel || ''; s.maxLabel = s.maxLabel || '';
-  }
-  renderSlideEditor();
-  renderSlideList();
-  scheduleSave();
+$('btnChangeType').addEventListener('click', () => {
+  openTypeGallery({ title: t('presenter.gallery.title'), onPick: (type) => {
+    applyTypeDefaults(currentSlide(), type);
+    renderSlideEditor(); renderSlideList(); scheduleSave();
+  }});
 });
 $('slideQuestion').addEventListener('input', (e) => { currentSlide().question = e.target.value; renderSlideList(); scheduleSave(); });
 $('optMultiple').addEventListener('change', (e) => { currentSlide().multiple = e.target.checked; scheduleSave(); });
@@ -712,17 +745,13 @@ $('brandLogoFile').addEventListener('change', async (e) => {
 });
 
 $('btnAddSlide').addEventListener('click', () => {
-  pres.slides.push({
-    id: crypto.randomUUID(),
-    type: 'choice',
-    question: '',
-    options: ['', ''],
-    multiple: false,
-  });
-  selectedIdx = pres.slides.length - 1;
-  renderSlideList();
-  renderSlideEditor();
-  scheduleSave();
+  openTypeGallery({ title: t('presenter.gallery.newTitle'), onPick: (type) => {
+    const s = { id: crypto.randomUUID(), question: '' };
+    applyTypeDefaults(s, type);
+    pres.slides.push(s);
+    selectedIdx = pres.slides.length - 1;
+    renderSlideList(); renderSlideEditor(); scheduleSave();
+  }});
 });
 
 $('btnDeleteSlide').addEventListener('click', async () => {
