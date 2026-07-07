@@ -18,7 +18,7 @@ import {
   SLIDE_TYPES, MAX_PARTICIPANTS_PER_SLIDE,
   clampText, sanitizeSlide, publicSlide, computeResults, applyAnswer, exportWorkbook,
   pendingQuestions, moderateQuestion, leaderboard, publicQuizResult, archiveSession,
-  answersRemainValid,
+  answersRemainValid, issueParticipant, verifyParticipant,
 } from '../lib/domain.mjs';
 
 const TTL_SECONDS = 60 * 24 * 60 * 60;   // 60 Tage Inaktivität → automatischer Ablauf
@@ -42,6 +42,10 @@ function brandOf(pres) {
 const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
 const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
 const hasRedis = !!(REDIS_URL && REDIS_TOKEN);
+
+// Secret für signierte Teilnehmer-Tokens (H23). Auf Vercel stabil über den
+// Redis-Token; für harte Prod-Sicherheit PARTICIPANT_SECRET als Env-Variable setzen.
+const PART_SECRET = process.env.PARTICIPANT_SECRET || REDIS_TOKEN || 'puls-dev-insecure-secret';
 
 // In-Memory-Fallback (überlebt keine Kaltstarts — nur für lokale Entwicklung)
 const mem = (globalThis.__pulsMem = globalThis.__pulsMem || new Map());
@@ -81,6 +85,19 @@ function memCommand(cmd) {
     case 'DEL': { const had = mem.delete(key); memExp.delete(key); return had ? 1 : 0; }
     case 'INCR': { const n = (Number(mem.get(key)) || 0) + 1; mem.set(key, String(n)); return n; }
     case 'EXPIRE': memExp.set(key, now + Number(value) * 1000); return 1;
+    // Minimaler Sorted-Set-Support für den Teilnehmerzähler (H7): value=score, flags[0]=member
+    case 'ZADD': {
+      let zs = mem.get(key); if (!(zs instanceof Map)) { zs = new Map(); mem.set(key, zs); }
+      zs.set(String(flags[0]), Number(value));
+      return 1;
+    }
+    case 'ZCARD': { const zs = mem.get(key); return zs instanceof Map ? zs.size : 0; }
+    case 'ZREMRANGEBYSCORE': {
+      const zs = mem.get(key); if (!(zs instanceof Map)) return 0;
+      const min = Number(value), max = Number(flags[0]); let removed = 0;
+      for (const [mm, sc] of zs) { if (sc >= min && sc <= max) { zs.delete(mm); removed++; } }
+      return removed;
+    }
     default: return null;
   }
 }
@@ -103,6 +120,22 @@ async function delPres(pres) {
 }
 async function idByCode(code) {
   return await redis('GET', codeKey(code));
+}
+
+// Teilnehmerzähler (H7, serverlos): aktive Teilnehmer in einem Sorted-Set je
+// Präsentation (member = Teilnehmer-ID, score = Zeitstempel). „Aktiv" = in den
+// letzten AUD_WINDOW_MS gesehen; jeder Publikums-Poll meldet sich per ?hb=<id>.
+const AUD_WINDOW_MS = 20000;
+const AUD_TTL = 120;
+const audKey = (id) => `puls:aud:${id}`;
+async function touchAudience(id, pid) {
+  try { await redis('ZADD', audKey(id), Date.now(), pid); await redis('EXPIRE', audKey(id), AUD_TTL); } catch { /* Zähler ist best-effort */ }
+}
+async function audienceCount(id) {
+  try {
+    await redis('ZREMRANGEBYSCORE', audKey(id), 0, Date.now() - AUD_WINDOW_MS);
+    return Number(await redis('ZCARD', audKey(id))) || 0;
+  } catch { return 0; }
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -134,6 +167,12 @@ async function withPresLock(id, fn, tries = 14) {
 // Helfer
 // ---------------------------------------------------------------------------
 
+// Client-IP fürs Rate-Limiting. Auf Vercel ist x-forwarded-for spoofing-sicher:
+// die Plattform überschreibt den Header mit der echten Client-IP und leitet vom
+// Client gesetzte externe IPs NICHT weiter → der erste Eintrag ist vertrauenswürdig
+// (vercel.com/docs/headers/request-headers). Beim Self-Hosting hinter einem Proxy
+// müsste die IP proxy-abhängig bestimmt werden (siehe server.js) — dort läuft diese
+// Funktion aber nicht.
 function clientIp(req) {
   const xff = req.headers['x-forwarded-for'];
   return xff ? String(xff).split(',')[0].trim() : (req.socket?.remoteAddress || 'unknown');
@@ -278,7 +317,10 @@ export default async function handler(req, res) {
       const id = await idByCode(m[1]);
       const pres = id ? await getPres(id) : null;
       if (!pres) return json(res, 404, { error: 'code_unknown' });
-      return json(res, 200, { id: pres.id, ...snapshot(pres) });
+      const jSnap = snapshot(pres);
+      jSnap.audience = await audienceCount(pres.id);
+      jSnap.participant = issueParticipant(PART_SECRET); // signierter Teilnehmer-Token (H23)
+      return json(res, 200, { id: pres.id, ...jSnap });
     }
 
     // /api/presentations/:id/...
@@ -309,14 +351,18 @@ export default async function handler(req, res) {
           brand: brandOf(pres),
         });
       }
-      return json(res, 200, snapshot(pres));
+      const pubSnap = snapshot(pres);
+      const hb = url.searchParams.get('hb');
+      if (hb) await touchAudience(pres.id, clampText(String(hb), 128));
+      pubSnap.audience = await audienceCount(pres.id);
+      return json(res, 200, pubSnap);
     }
 
     if (sub === '/answers' && method === 'POST') {
       if (!(await publicRateLimit('answers', req))) return json(res, 429, { error: 'rate_limited' });
       const body = await readJson(req);
-      const pid = clampText(String(body.participantId || ''), 64);
-      if (!pid) return json(res, 400, { error: 'participant_missing' });
+      const pid = verifyParticipant(String(body.participantId || ''), PART_SECRET);
+      if (!pid) return json(res, 400, { error: 'bad_participant' });
       // Unter Lock frisch lesen → mutieren → schreiben (verhindert verlorene Updates).
       const out = await withPresLock(pres.id, async () => {
         const p = await getPres(pres.id);
@@ -340,8 +386,8 @@ export default async function handler(req, res) {
     if (sub === '/upvote' && method === 'POST') {
       if (!(await publicRateLimit('upvote', req))) return json(res, 429, { error: 'rate_limited' });
       const body = await readJson(req);
-      const pid = clampText(String(body.participantId || ''), 64);
-      if (!pid) return json(res, 400, { error: 'participant_missing' });
+      const pid = verifyParticipant(String(body.participantId || ''), PART_SECRET);
+      if (!pid) return json(res, 400, { error: 'bad_participant' });
       const out = await withPresLock(pres.id, async () => {
         const p = await getPres(pres.id);
         if (!p) return { s: 404, j: { error: 'not_found' } };
@@ -405,8 +451,8 @@ export default async function handler(req, res) {
     if (sub === '/identify' && method === 'POST') {
       if (!(await publicRateLimit('identify', req))) return json(res, 429, { error: 'rate_limited' });
       const body = await readJson(req);
-      const pid = clampText(String(body.participantId || ''), 64);
-      if (!pid) return json(res, 400, { error: 'participant_missing' });
+      const pid = verifyParticipant(String(body.participantId || ''), PART_SECRET);
+      if (!pid) return json(res, 400, { error: 'bad_participant' });
       const name = clampText(String(body.name || ''), 40);
       if (!name) return json(res, 400, { error: 'name_missing' });
       const out = await withPresLock(pres.id, async () => {
@@ -427,6 +473,19 @@ export default async function handler(req, res) {
 
     // Ab hier: nur Admin
     if (!isAdmin(pres, req, url)) return json(res, 403, { error: 'forbidden' });
+
+    // POST /rotate-token — neuen Moderations-Token erzeugen, alten sofort ungültig machen (H22)
+    if (sub === '/rotate-token' && method === 'POST') {
+      const out = await withPresLock(pres.id, async () => {
+        const p = await getPres(pres.id);
+        if (!p) return { s: 404, j: { error: 'not_found' } };
+        p.adminToken = crypto.randomBytes(24).toString('hex');
+        p.lastActivity = Date.now();
+        await putPres(p);
+        return { s: 200, j: { ok: true, adminToken: p.adminToken } };
+      });
+      return json(res, out.s, out.j);
+    }
 
     if (sub === '/export.xlsx' && method === 'GET') {
       const buf = exportWorkbook(pres);

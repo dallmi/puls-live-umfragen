@@ -50,7 +50,7 @@ async function api(method, path, body, adminToken) {
 
 const POLL_INTERVAL_MS = 1500;
 
-function connectStream(presId, role, onUpdate, onStatus) {
+function connectStream(presId, role, onUpdate, onStatus, heartbeatId) {
   let source = null;
   let pollTimer = null;
   let closed = false;
@@ -61,7 +61,9 @@ function connectStream(presId, role, onUpdate, onStatus) {
     async function tick() {
       if (closed) return;
       try {
-        const snap = await api('GET', `/api/presentations/${presId}`);
+        // Publikum meldet sich beim Poll als aktiv (H7 — nur serverlos/Polling relevant)
+        const hb = (role === 'audience' && heartbeatId) ? `?hb=${encodeURIComponent(heartbeatId)}` : '';
+        const snap = await api('GET', `/api/presentations/${presId}${hb}`);
         if (closed) return;
         onUpdate(snap);
         if (onStatus) onStatus('live');

@@ -45,7 +45,12 @@ initLangToggle(document.getElementById('langToggle'), refreshLanguage);
 const params = new URLSearchParams(location.search);
 const CODE = (params.get('code') || '').replace(/\D/g, '');
 const root = document.getElementById('root');
-const PID = participantId();
+// Signierter Teilnehmer-Token (H23): stabil über Reloads gespeichert; beim Beitritt
+// vom Server ausgestellt — verhindert frei erfundene Teilnehmer-IDs (Ballot-Stuffing).
+function loadPToken() { try { return localStorage.getItem('puls.pt') || ''; } catch { return ''; } }
+function storePToken(t) { try { localStorage.setItem('puls.pt', t); } catch { /* Storage blockiert */ } }
+let PID = loadPToken();
+let issuedToken = '';
 
 let presId = null;
 let snap = null;
@@ -112,6 +117,8 @@ async function init() {
   try {
     const joined = await api('GET', `/api/join/${CODE}`);
     presId = joined.id;
+    issuedToken = joined.participant || '';
+    if (!PID && issuedToken) { PID = issuedToken; storePToken(PID); }
     // localStorage (nicht session): bleibt wie die participantId erhalten, sodass die
     // „gevotet"-Markierung nach erneutem Öffnen mit dem Serverzustand übereinstimmt.
     upvoted = new Set(JSON.parse(localStorage.getItem('puls.upvoted.' + presId) || '[]'));
@@ -119,7 +126,7 @@ async function init() {
     setupReactionBar();
     connectStream(presId, 'audience', onSnapshot, (status) => {
       if (status === 'gone') root.innerHTML = `<div class="ds-empty" style="padding:3rem 1rem;text-align:center;"><h3>${esc(t('vote.gone.title'))}</h3><p>${esc(t('vote.gone.desc'))}</p></div>`;
-    });
+    }, PID);
   } catch {
     root.innerHTML = `
       <div class="ds-empty">
@@ -340,6 +347,12 @@ async function submit(value, onOk, onErr) {
     });
     onOk && onOk(r); // r kann Quiz-Feedback enthalten ({ quiz: { correct, points } })
   } catch (e) {
+    // Gespeicherter Token ungültig (z. B. Secret gewechselt) → einmal mit dem beim
+    // Beitritt frisch ausgestellten Token wiederholen (H23).
+    if (e && e.message === 'bad_participant' && issuedToken && PID !== issuedToken) {
+      PID = issuedToken; storePToken(PID);
+      return submit(value, onOk, onErr);
+    }
     if (onErr) onErr(e);
     else voteError(e); // kein spezieller Handler → sichtbare Fehlermeldung statt lautlosem Stimmverlust
   }

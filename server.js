@@ -17,7 +17,7 @@ import { fileURLToPath } from 'node:url';
 import {
   clampText, sanitizeSlide, answersRemainValid, publicSlide, publicQuizResult,
   computeResults, applyAnswer, exportWorkbook, pendingQuestions, moderateQuestion,
-  leaderboard, archiveSession,
+  leaderboard, archiveSession, issueParticipant, verifyParticipant,
   MAX_TEXT_LEN, MAX_OPEN_ANSWERS_PER_USER, MAX_PARTICIPANTS_PER_SLIDE, SLIDE_TYPES,
 } from './lib/domain.mjs';
 
@@ -54,6 +54,8 @@ function loadStore() {
   } catch {
     store = { presentations: {} };
   }
+  // Stabiles Secret für signierte Teilnehmer-Tokens (H23), einmalig erzeugt & persistiert.
+  if (!store.secret) { store.secret = crypto.randomBytes(32).toString('hex'); saveStore(); }
 }
 
 let saveTimer = null;
@@ -78,6 +80,12 @@ loadStore();
 // Rate-Limiting & Client-IP (der Server läuft hinter nginx, das X-Forwarded-For setzt)
 // ---------------------------------------------------------------------------
 
+// Client-IP fürs Rate-Limiting. ACHTUNG beim Self-Hosting: Der erste x-forwarded-for-
+// Eintrag ist vom Client fälschbar, wenn KEIN vertrauenswürdiger Proxy davor sitzt.
+// Hinter nginx sollte nginx x-forwarded-for selbst setzen/überschreiben; je nach
+// Setup ist dann der letzte Eintrag bzw. x-real-ip die vertrauenswürdige Quelle.
+// (Die öffentliche Vercel-Instanz nutzt api/index.js, wo die Plattform Spoofing
+// bereits verhindert.)
 function clientIp(req) {
   const xff = req.headers['x-forwarded-for'];
   if (xff) return String(xff).split(',')[0].trim();
@@ -429,7 +437,9 @@ async function handleApi(req, res, url) {
     if (!rateLimit(`join:${clientIp(req)}`, PUBLIC_RATE.windowMs, PUBLIC_RATE.max)) return sendJSON(res, 429, { error: 'rate_limited' });
     const pres = Object.values(store.presentations).find((x) => x.code === m[1]);
     if (!pres) return sendJSON(res, 404, { error: 'code_unknown' });
-    return sendJSON(res, 200, { id: pres.id, ...snapshot(pres.id) });
+    const jSnap = snapshot(pres.id);
+    jSnap.participant = issueParticipant(store.secret); // signierter Teilnehmer-Token (H23)
+    return sendJSON(res, 200, { id: pres.id, ...jSnap });
   }
 
   // Alles Weitere: /api/presentations/:id/...
@@ -492,8 +502,8 @@ async function handleApi(req, res, url) {
     const slide = pres.slides.find((s) => s.id === body.slideId);
     if (!slide) return sendJSON(res, 404, { error: 'slide_unknown' });
     if (pres.votingLocked) return sendJSON(res, 423, { error: 'voting_locked' });
-    const pid = clampText(String(body.participantId || ''), 64);
-    if (!pid) return sendJSON(res, 400, { error: 'participant_missing' });
+    const pid = verifyParticipant(String(body.participantId || ''), store.secret);
+    if (!pid) return sendJSON(res, 400, { error: 'bad_participant' });
     // Obergrenze für verschiedene Teilnehmer je Folie (verhindert unbegrenztes Wachstum)
     if (!(pid in slide.answers) && Object.keys(slide.answers).length >= MAX_PARTICIPANTS_PER_SLIDE) {
       return sendJSON(res, 429, { error: 'slide_full' });
@@ -514,8 +524,8 @@ async function handleApi(req, res, url) {
     const body = await readBody(req);
     const slide = pres.slides.find((s) => s.id === body.slideId);
     if (!slide || slide.type !== 'qa') return sendJSON(res, 404, { error: 'slide_unknown' });
-    const pid = clampText(String(body.participantId || ''), 64);
-    if (!pid) return sendJSON(res, 400, { error: 'participant_missing' });
+    const pid = verifyParticipant(String(body.participantId || ''), store.secret);
+    if (!pid) return sendJSON(res, 400, { error: 'bad_participant' });
     let found = false;
     let capped = false;
     for (const list of Object.values(slide.answers)) {
@@ -565,8 +575,8 @@ async function handleApi(req, res, url) {
     if (!rateLimit(`identify:${clientIp(req)}`, PUBLIC_RATE.windowMs, PUBLIC_RATE.max)) return sendJSON(res, 429, { error: 'rate_limited' });
     const body = await readBody(req);
     if (!pres.collectNames) return sendJSON(res, 409, { error: 'names_disabled' });
-    const pid = clampText(String(body.participantId || ''), 64);
-    if (!pid) return sendJSON(res, 400, { error: 'participant_missing' });
+    const pid = verifyParticipant(String(body.participantId || ''), store.secret);
+    if (!pid) return sendJSON(res, 400, { error: 'bad_participant' });
     const name = clampText(String(body.name || ''), 40);
     if (!name) return sendJSON(res, 400, { error: 'name_missing' });
     if (!pres.names) pres.names = {};
@@ -583,6 +593,14 @@ async function handleApi(req, res, url) {
 
   // Ab hier: nur Admin
   if (!requireAdmin(pres, req, url)) return sendJSON(res, 403, { error: 'forbidden' });
+
+  // POST /rotate-token — neuen Moderations-Token erzeugen, alten sofort ungültig machen (H22)
+  if (sub === '/rotate-token' && method === 'POST') {
+    pres.adminToken = crypto.randomBytes(24).toString('hex');
+    touch(pres);
+    saveStore();
+    return sendJSON(res, 200, { ok: true, adminToken: pres.adminToken });
+  }
 
   // GET /api/presentations/:id/export.xlsx — Ergebnisse als Excel-Datei
   if (sub === '/export.xlsx' && method === 'GET') {
