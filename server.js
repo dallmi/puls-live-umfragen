@@ -605,7 +605,7 @@ async function handleApi(req, res, url) {
 
   // GET /api/presentations/:id/export.xlsx — Ergebnisse als Excel-Datei
   if (sub === '/export.xlsx' && method === 'GET') {
-    const buf = exportWorkbook(pres);
+    const buf = exportWorkbook(pres, url.searchParams.get('lang'));
     const fname = `puls-${pres.code}-${new Date().toISOString().slice(0, 10)}.xlsx`;
     res.writeHead(200, {
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

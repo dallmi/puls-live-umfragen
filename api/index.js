@@ -489,7 +489,7 @@ export default async function handler(req, res) {
     }
 
     if (sub === '/export.xlsx' && method === 'GET') {
-      const buf = exportWorkbook(pres);
+      const buf = exportWorkbook(pres, url.searchParams.get('lang'));
       res.statusCode = 200;
       res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
       res.setHeader('Content-Disposition', `attachment; filename="puls-${pres.code}-${new Date().toISOString().slice(0, 10)}.xlsx"`);
