@@ -27,10 +27,50 @@
   const W = 13.33, H = 7.5, ML = 0.45, MR = 0.45, CW = W - ML - MR;
   const CONTENT_TOP = 1.5, CONTENT_BOTTOM = 6.9;
 
-  const TYPE_LABEL = {
-    choice: 'Multiple Choice', wordcloud: 'Wortwolke', open: 'Offene Frage',
-    scale: 'Skala', ranking: 'Ranking', points: '100-Punkte-Verteilung', quiz: 'Quiz', qa: 'Q&A', info: 'Infofolie',
-  };
+  /** Beschriftungen für den PowerPoint-Export je Sprache (H31). */
+  function pptxLabels(lang) {
+    const de = {
+      types: { choice: 'Multiple Choice', wordcloud: 'Wortwolke', open: 'Offene Frage', scale: 'Skala', ranking: 'Ranking', points: '100-Punkte-Verteilung', quiz: 'Quiz', qa: 'Q&A', info: 'Infofolie' },
+      exported: (stamp) => `Exportiert ${stamp}`,
+      liveSurvey: (code, n) => `Live-Umfrage · Code ${code} · ${n} Folien`,
+      slide: 'Folie', type: 'Typ', question: 'Frage', participants: 'Teilnehmende',
+      participantsWith: (n) => `${n} Teilnehmende`,
+      typeParticipants: (label, n) => `${label} · ${n} Teilnehmende`,
+      leaderboard: 'Rangliste', leaderboardSub: 'Punkte über alle Quiz-Folien',
+      noOptions: 'Keine Antwortoptionen.', noRanking: 'Noch keine Reihenfolge abgegeben.',
+      noTerms: 'Keine Begriffe eingereicht.', noAnswers: 'Keine Antworten eingegangen.',
+      noRatings: 'Keine Bewertungen.', noQuestions: 'Keine Fragen aus dem Publikum.',
+      votes: (n) => `${n} ${n === 1 ? 'Stimme' : 'Stimmen'}`,
+      answersN: (n) => `${n} ${n === 1 ? 'Antwort' : 'Antworten'}`,
+      pointsTotal: (voters, grand) => `${voters} Teilnehmende · ${grand} Punkte gesamt`,
+      terms: (voters, words) => `${voters} Teilnehmende · ${words} Begriffe`,
+      moreAnswers: (total, more) => `${total} Antworten insgesamt — ${more} weitere in der Excel-Datei`,
+      scaleAvg: (min, max, voters) => `Durchschnitt von ${min} bis ${max} · ${voters} ${voters === 1 ? 'Bewertung' : 'Bewertungen'}`,
+      moreQuestions: (total, more) => `${total} Fragen insgesamt — ${more} weitere in der Excel-Datei`,
+      questionsN: (n) => `${n} ${n === 1 ? 'Frage' : 'Fragen'} · Zahl = Stimmen aus dem Publikum`,
+    };
+    const en = {
+      types: { choice: 'Multiple choice', wordcloud: 'Word cloud', open: 'Open question', scale: 'Scale', ranking: 'Ranking', points: '100-point allocation', quiz: 'Quiz', qa: 'Q&A', info: 'Info slide' },
+      exported: (stamp) => `Exported ${stamp}`,
+      liveSurvey: (code, n) => `Live poll · Code ${code} · ${n} slides`,
+      slide: 'Slide', type: 'Type', question: 'Question', participants: 'Participants',
+      participantsWith: (n) => `${n} participants`,
+      typeParticipants: (label, n) => `${label} · ${n} participants`,
+      leaderboard: 'Leaderboard', leaderboardSub: 'Points across all quiz slides',
+      noOptions: 'No answer options.', noRanking: 'No ranking submitted yet.',
+      noTerms: 'No terms submitted.', noAnswers: 'No answers received.',
+      noRatings: 'No ratings.', noQuestions: 'No questions from the audience.',
+      votes: (n) => `${n} ${n === 1 ? 'vote' : 'votes'}`,
+      answersN: (n) => `${n} ${n === 1 ? 'answer' : 'answers'}`,
+      pointsTotal: (voters, grand) => `${voters} participants · ${grand} points total`,
+      terms: (voters, words) => `${voters} participants · ${words} terms`,
+      moreAnswers: (total, more) => `${total} answers in total — ${more} more in the Excel file`,
+      scaleAvg: (min, max, voters) => `Average from ${min} to ${max} · ${voters} ${voters === 1 ? 'rating' : 'ratings'}`,
+      moreQuestions: (total, more) => `${total} questions in total — ${more} more in the Excel file`,
+      questionsN: (n) => `${n} ${n === 1 ? 'question' : 'questions'} · number = votes from the audience`,
+    };
+    return lang === 'en' ? en : de;
+  }
 
   function stampNow() {
     const d = new Date();
@@ -54,7 +94,9 @@
    * @param resultsMap slideId -> results (wie /api/presentations/:id liefert)
    * @returns pptx-Instanz (Aufrufer ruft writeFile/write auf)
    */
-  function buildPulsPptx(PptxGenJS, pres, resultsMap) {
+  function buildPulsPptx(PptxGenJS, pres, resultsMap, lang) {
+    const PL = pptxLabels(lang);
+    const TYPE_LABEL = PL.types;
     const pptx = new PptxGenJS();
     pptx.defineLayout({ name: 'WIDE', width: W, height: H });
     pptx.layout = 'WIDE';
@@ -70,7 +112,7 @@
       s.addShape('rect', { x: 0, y: 0, w: W, h: 0.06, fill: { color: C.red } });
       s.addText(clip(title, 120), T({ x: ML, y: 0.22, w: CW - 2.5, h: 0.55, fontSize: 22, bold: true, color: C.black }));
       if (subtitle) s.addText(subtitle, T({ x: ML, y: 0.76, w: CW - 2.5, h: 0.3, fontSize: 11, color: C.med }));
-      s.addText(`Exportiert ${stamp}`, T({ x: W - MR - 2.4, y: 0.28, w: 2.4, h: 0.3, fontSize: 10, color: C.med, align: 'right' }));
+      s.addText(PL.exported(stamp), T({ x: W - MR - 2.4, y: 0.28, w: 2.4, h: 0.3, fontSize: 10, color: C.med, align: 'right' }));
       s.addText(`${clip(pres.title, 60)} — Code ${fmtCode(pres.code)}`, T({ x: ML, y: 7.1, w: 8, h: 0.28, fontSize: 8, color: C.med }));
       s.addText(String(pageNo), T({ x: W - MR - 0.8, y: 7.1, w: 0.8, h: 0.28, fontSize: 10, color: C.med, align: 'right' }));
       return s;
@@ -78,15 +120,15 @@
 
     // --- Titel- und Übersichtsfolie -----------------------------------------
     {
-      const s = newSlide(pres.title, `Live-Umfrage · Code ${fmtCode(pres.code)} · ${pres.slides.length} Folien`);
+      const s = newSlide(pres.title, PL.liveSurvey(fmtCode(pres.code), pres.slides.length));
       const B_NONE = { type: 'none' };
       const B_RULE = { type: 'solid', color: C.black, pt: 0.75 };
       const th = { color: C.black, bold: true, fontSize: 10, fontFace: FONT, valign: 'top', fill: { color: C.white }, border: [B_RULE, B_NONE, B_RULE, B_NONE] };
       const rows = [[
-        Object.assign({ text: 'Folie' }, { options: th }),
-        Object.assign({ text: 'Typ' }, { options: th }),
-        Object.assign({ text: 'Frage' }, { options: th }),
-        Object.assign({ text: 'Teilnehmende' }, { options: Object.assign({}, th, { align: 'right' }) }),
+        Object.assign({ text: PL.slide }, { options: th }),
+        Object.assign({ text: PL.type }, { options: th }),
+        Object.assign({ text: PL.question }, { options: th }),
+        Object.assign({ text: PL.participants }, { options: Object.assign({}, th, { align: 'right' }) }),
       ]];
       pres.slides.forEach((sl, i) => {
         const res = resultsMap[sl.id];
@@ -108,7 +150,7 @@
       const res = resultsMap[sl.id];
       const label = TYPE_LABEL[sl.type] || sl.type;
       const voters = res && res.voters !== undefined ? res.voters : 0;
-      const sub = sl.type === 'info' ? label : `${label} · ${voters} Teilnehmende`;
+      const sub = sl.type === 'info' ? label : PL.typeParticipants(label, voters);
       const s = newSlide(sl.question || label, sub);
 
       switch (sl.type) {
@@ -129,7 +171,7 @@
     // Rangliste als Abschlussfolie, falls Quiz-Folien vorhanden sind
     const board = Array.isArray(pres.leaderboard) ? pres.leaderboard : [];
     if (pres.slides.some((sl) => sl.type === 'quiz') && board.length) {
-      const s = newSlide('Rangliste', 'Punkte über alle Quiz-Folien');
+      const s = newSlide(PL.leaderboard, PL.leaderboardSub);
       const shown = board.slice(0, 12);
       const step = Math.min(0.5, (CONTENT_BOTTOM - CONTENT_TOP - 0.4) / shown.length);
       shown.forEach((r, i) => {
@@ -139,7 +181,7 @@
         s.addText(clip(r.name, 60), T({ x: ML + 0.7, y: y, w: CW - 3.2, h: step, fontSize: 13, color: C.black, valign: 'middle' }));
         s.addText(String(r.points), T({ x: W - MR - 1.8, y: y, w: 1.6, h: step, fontSize: 13, bold: true, color: C.dark, align: 'right', valign: 'middle' }));
       });
-      s.addText(`${board.length} Teilnehmende`, T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 5, h: 0.3, fontSize: 10, color: C.med }));
+      s.addText(PL.participantsWith(board.length), T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 5, h: 0.3, fontSize: 10, color: C.med }));
     }
 
     function empty(s, text) {
@@ -149,7 +191,7 @@
     // Balkendiagramm: einfarbig Bordeaux, Führender Rot, 1pt schwarze Achse
     function addChoice(s, sl, res) {
       const opts = sl.options || [];
-      if (!res || !opts.length) return empty(s, 'Keine Antwortoptionen.');
+      if (!res || !opts.length) return empty(s, PL.noOptions);
       const counts = res.counts || [];
       const total = counts.reduce((a, b) => a + b, 0);
       const max = Math.max.apply(null, counts.concat([1]));
@@ -178,13 +220,13 @@
           { text: `  ${pct} %`, options: { color: C.med, fontSize: 11 } },
         ], T({ x: barX + barW + 0.12, y: y - 0.08, w: valueW, h: barH + 0.16, valign: 'middle' }));
       });
-      s.addText(`${res.voters} ${res.voters === 1 ? 'Stimme' : 'Stimmen'}`, T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 4, h: 0.3, fontSize: 10, color: C.med }));
+      s.addText(PL.votes(res.voters), T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 4, h: 0.3, fontSize: 10, color: C.med }));
     }
 
     // 100-Punkte-Verteilung: Balken = Gesamtpunkte je Option (nach Punkten sortiert)
     function addPoints(s, sl, res) {
       const opts = sl.options || [];
-      if (!res || !opts.length) return empty(s, 'Keine Antwortoptionen.');
+      if (!res || !opts.length) return empty(s, PL.noOptions);
       const totals = res.totals || [];
       const grand = totals.reduce((a, b) => a + b, 0);
       const order = opts.map((opt, i) => ({ opt, pts: totals[i] || 0 })).sort((a, b) => b.pts - a.pts);
@@ -209,13 +251,13 @@
           { text: `  ${pct} %`, options: { color: C.med, fontSize: 11 } },
         ], T({ x: barX + barW + 0.12, y: y - 0.08, w: valueW, h: barH + 0.16, valign: 'middle' }));
       });
-      s.addText(`${res.voters} Teilnehmende · ${grand} Punkte gesamt`, T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 6, h: 0.3, fontSize: 10, color: C.med }));
+      s.addText(PL.pointsTotal(res.voters, grand), T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 6, h: 0.3, fontSize: 10, color: C.med }));
     }
 
     // Ranking: geordnete Liste nach Borda-Punkten, mit durchschnittlicher Position
     function addRanking(s, sl, res) {
       const items = (res && res.items) || [];
-      if (!items.length) return empty(s, 'Noch keine Reihenfolge abgegeben.');
+      if (!items.length) return empty(s, PL.noRanking);
       const step = Math.min(0.62, (CONTENT_BOTTOM - CONTENT_TOP - 0.4) / items.length);
       items.forEach((it, i) => {
         const y = CONTENT_TOP + i * step;
@@ -226,13 +268,13 @@
         const avg = res.voters ? `Ø ${it.avgRank.toFixed(2)}` : '–';
         s.addText(avg, T({ x: W - MR - 1.9, y: y, w: 1.7, h: step, fontSize: 11, color: C.med, align: 'right', valign: 'middle' }));
       });
-      s.addText(`${res.voters} Teilnehmende`, T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 5, h: 0.3, fontSize: 10, color: C.med }));
+      s.addText(PL.participantsWith(res.voters), T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 5, h: 0.3, fontSize: 10, color: C.med }));
     }
 
     // Quiz: Balken je Option, richtige Antwort grün + ✓
     function addQuiz(s, sl, res) {
       const opts = sl.options || [];
-      if (!res || !opts.length) return empty(s, 'Keine Antwortoptionen.');
+      if (!res || !opts.length) return empty(s, PL.noOptions);
       const counts = res.counts || [];
       const total = counts.reduce((a, b) => a + b, 0);
       const max = Math.max.apply(null, counts.concat([1]));
@@ -257,12 +299,12 @@
           { text: `  ${pct} %`, options: { color: C.med, fontSize: 11 } },
         ], T({ x: barX + barW + 0.12, y: y - 0.08, w: valueW, h: barH + 0.16, valign: 'middle' }));
       });
-      s.addText(`${res.voters} ${res.voters === 1 ? 'Antwort' : 'Antworten'}`, T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 4, h: 0.3, fontSize: 10, color: C.med }));
+      s.addText(PL.answersN(res.voters), T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 4, h: 0.3, fontSize: 10, color: C.med }));
     }
 
     // Wortwolke: Größe = Häufigkeit, Farben aus der Markenfarb-Sequenz
     function addWordcloud(s, res) {
-      if (!res || !res.words || !res.words.length) return empty(s, 'Keine Begriffe eingereicht.');
+      if (!res || !res.words || !res.words.length) return empty(s, PL.noTerms);
       const words = res.words.slice(0, 40);
       const maxC = words[0].count;
       const runs = [];
@@ -283,12 +325,12 @@
         runs.push({ text: '   ', options: { fontSize: 14, breakLine: false } });
       });
       s.addText(runs, T({ x: ML + 0.5, y: CONTENT_TOP, w: CW - 1, h: CONTENT_BOTTOM - CONTENT_TOP - 0.4, align: 'center', valign: 'middle' }));
-      s.addText(`${res.voters} Teilnehmende · ${res.words.length} Begriffe`, T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 5, h: 0.3, fontSize: 10, color: C.med }));
+      s.addText(PL.terms(res.voters, res.words.length), T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 5, h: 0.3, fontSize: 10, color: C.med }));
     }
 
     // Offene Frage: Antwortliste (chronologisch), bei Überlänge gekürzt
     function addOpen(s, res) {
-      if (!res || !res.texts || !res.texts.length) return empty(s, 'Keine Antworten eingegangen.');
+      if (!res || !res.texts || !res.texts.length) return empty(s, PL.noAnswers);
       const texts = res.texts.slice().reverse(); // älteste zuerst
       const MAX = 12;
       const shown = texts.slice(0, MAX);
@@ -299,16 +341,16 @@
           fontSize: 12, color: C.dark, valign: 'top',
         }));
       });
-      const note = texts.length > MAX ? `${texts.length} Antworten insgesamt — ${texts.length - MAX} weitere in der Excel-Datei` : `${texts.length} ${texts.length === 1 ? 'Antwort' : 'Antworten'}`;
+      const note = texts.length > MAX ? PL.moreAnswers(texts.length, texts.length - MAX) : PL.answersN(texts.length);
       s.addText(note, T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 8, h: 0.3, fontSize: 10, color: C.med }));
     }
 
     // Skala: großer Durchschnittswert + Verteilung mit schwarzer Grundlinie
     function addScale(s, sl, res) {
-      if (!res) return empty(s, 'Keine Bewertungen.');
+      if (!res) return empty(s, PL.noRatings);
       const avgText = res.voters ? (Math.round(res.avg * 10) / 10).toFixed(1) : '–';
       s.addText(avgText, T({ x: ML, y: CONTENT_TOP - 0.1, w: 3, h: 1.1, fontSize: 54, color: C.black }));
-      s.addText(`Durchschnitt von ${sl.min} bis ${sl.max} · ${res.voters} ${res.voters === 1 ? 'Bewertung' : 'Bewertungen'}`,
+      s.addText(PL.scaleAvg(sl.min, sl.max, res.voters),
         T({ x: ML, y: CONTENT_TOP + 1.0, w: 6, h: 0.3, fontSize: 11, color: C.med }));
 
       const n = sl.max - sl.min + 1;
@@ -339,7 +381,7 @@
 
     // Q&A: Fragen sortiert nach Stimmen
     function addQa(s, res) {
-      if (!res || !res.questions || !res.questions.length) return empty(s, 'Keine Fragen aus dem Publikum.');
+      if (!res || !res.questions || !res.questions.length) return empty(s, PL.noQuestions);
       const MAX = 10;
       const shown = res.questions.slice(0, MAX);
       const step = Math.min(0.52, (CONTENT_BOTTOM - CONTENT_TOP - 0.4) / shown.length);
@@ -349,8 +391,8 @@
         s.addText(clip(q.text, 160), T({ x: ML + 0.95, y, w: CW - 2, h: step, fontSize: 12, color: C.dark, valign: 'top' }));
       });
       const note = res.questions.length > MAX
-        ? `${res.questions.length} Fragen insgesamt — ${res.questions.length - MAX} weitere in der Excel-Datei`
-        : `${res.questions.length} ${res.questions.length === 1 ? 'Frage' : 'Fragen'} · Zahl = Stimmen aus dem Publikum`;
+        ? PL.moreQuestions(res.questions.length, res.questions.length - MAX)
+        : PL.questionsN(res.questions.length);
       s.addText(note, T({ x: ML, y: CONTENT_BOTTOM - 0.3, w: 8, h: 0.3, fontSize: 10, color: C.med }));
     }
 

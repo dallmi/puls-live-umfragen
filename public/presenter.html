@@ -1023,7 +1023,7 @@ $('btnPptx').addEventListener('click', async () => {
   try {
     await saveNow();
     await refreshResults();
-    const pptx = buildPulsPptx(PptxGenJS, pres, latestResults);
+    const pptx = buildPulsPptx(PptxGenJS, pres, latestResults, getLang());
     await pptx.writeFile({ fileName: `puls-${pres.code}-${new Date().toISOString().slice(0, 10)}.pptx` });
   } catch (e) {
     await alertDialog({ title: t('presenter.pptxExport'), body: t('presenter.pptxFailed') + e.message });
