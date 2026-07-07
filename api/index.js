@@ -18,6 +18,7 @@ import {
   SLIDE_TYPES, MAX_PARTICIPANTS_PER_SLIDE,
   clampText, sanitizeSlide, publicSlide, computeResults, applyAnswer, exportWorkbook,
   pendingQuestions, moderateQuestion, leaderboard, publicQuizResult, archiveSession,
+  answersRemainValid,
 } from '../lib/domain.mjs';
 
 const TTL_SECONDS = 60 * 24 * 60 * 60;   // 60 Tage Inaktivität → automatischer Ablauf
@@ -134,6 +135,22 @@ async function withPresLock(id, fn, tries = 14) {
 function clientIp(req) {
   const xff = req.headers['x-forwarded-for'];
   return xff ? String(xff).split(',')[0].trim() : (req.socket?.remoteAddress || 'unknown');
+}
+
+// Grobes Rate-Limit für öffentliche Endpunkte (Sliding-Window via Redis INCR+EXPIRE),
+// je IP und Endpunkt. Bremst Code-Brute-Force auf /join und Skript-Fluten auf den
+// Schreib-Endpunkten (Ballot-Stuffing/Spam), ohne einen normalen Raum zu blockieren.
+// Bewusst großzügig: ganze Publika hängen oft hinter EINER NAT-IP. Der Snapshot-/
+// Polling-Endpunkt (GET :id) wird NICHT gedrosselt. Bei Limiter-Fehler: durchlassen.
+// Hinweis: robuster Anti-Stuffing-Schutz (pro Teilnehmer) ist eine größere Folgeaufgabe.
+const PUBLIC_RATE_MAX = 60;     // Anfragen je Fenster
+const PUBLIC_RATE_WINDOW = 10;  // Sekunden
+async function publicRateLimit(bucket, req) {
+  const key = `puls:rl:${bucket}:${clientIp(req)}`;
+  let n;
+  try { n = await redis('INCR', key); } catch { return true; }
+  if (n === 1) await redis('EXPIRE', key, PUBLIC_RATE_WINDOW).catch(() => {});
+  return n <= PUBLIC_RATE_MAX;
 }
 
 function safeEqual(a, b) {
@@ -255,6 +272,7 @@ export default async function handler(req, res) {
     // GET /api/join/:code
     let m = p.match(/^\/api\/join\/(\d{6})$/);
     if (m && method === 'GET') {
+      if (!(await publicRateLimit('join', req))) return json(res, 429, { error: 'rate_limited' });
       const id = await idByCode(m[1]);
       const pres = id ? await getPres(id) : null;
       if (!pres) return json(res, 404, { error: 'code_unknown' });
@@ -293,6 +311,7 @@ export default async function handler(req, res) {
     }
 
     if (sub === '/answers' && method === 'POST') {
+      if (!(await publicRateLimit('answers', req))) return json(res, 429, { error: 'rate_limited' });
       const body = await readJson(req);
       const pid = clampText(String(body.participantId || ''), 64);
       if (!pid) return json(res, 400, { error: 'participant_missing' });
@@ -317,6 +336,7 @@ export default async function handler(req, res) {
     }
 
     if (sub === '/upvote' && method === 'POST') {
+      if (!(await publicRateLimit('upvote', req))) return json(res, 429, { error: 'rate_limited' });
       const body = await readJson(req);
       const pid = clampText(String(body.participantId || ''), 64);
       if (!pid) return json(res, 400, { error: 'participant_missing' });
@@ -351,6 +371,7 @@ export default async function handler(req, res) {
 
     // POST /api/presentations/:id/react — Emoji-Reaktion (Publikum, ephemer)
     if (sub === '/react' && method === 'POST') {
+      if (!(await publicRateLimit('react', req))) return json(res, 429, { error: 'rate_limited' });
       const body = await readJson(req);
       const emoji = String(body.emoji || '');
       if (!REACTIONS.includes(emoji)) return json(res, 400, { error: 'bad_emoji' });
@@ -380,6 +401,7 @@ export default async function handler(req, res) {
 
     // POST /api/presentations/:id/identify — Anzeigenamen setzen (Publikum, nur wenn aktiviert)
     if (sub === '/identify' && method === 'POST') {
+      if (!(await publicRateLimit('identify', req))) return json(res, 429, { error: 'rate_limited' });
       const body = await readJson(req);
       const pid = clampText(String(body.participantId || ''), 64);
       if (!pid) return json(res, 400, { error: 'participant_missing' });
@@ -495,7 +517,9 @@ export default async function handler(req, res) {
         p.slides = body.slides.slice(0, 50).map((input) => {
           const slide = sanitizeSlide(input);
           const prev = existing.get(slide.id);
-          slide.answers = prev ? prev.answers : {};
+          // Antworten nur übernehmen, wenn sie nach der Bearbeitung noch gültig sind —
+          // sonst würden indexbasierte Stimmen auf falsche Optionen zeigen (Ergebnis-Verfälschung).
+          slide.answers = (prev && answersRemainValid(prev, slide)) ? prev.answers : {};
           if (prev && prev.startedAt && slide.type === 'quiz') slide.startedAt = prev.startedAt;
           return slide;
         });

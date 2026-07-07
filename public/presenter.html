@@ -231,7 +231,9 @@
       <span data-i18n="presenter.moderation.title">Freigabe</span>
       <span class="moderation-count" id="moderationCount">0</span>
     </div>
-    <div class="moderation-list" id="moderationList"></div>
+    <div class="moderation-hint" id="moderationHint" data-i18n="presenter.moderation.toggleHint">Taste M: Fragen prüfen</div>
+    <div class="moderation-warning" id="moderationWarning" hidden data-i18n="presenter.moderation.visibleWarn">⚠ Für das Publikum sichtbar</div>
+    <div class="moderation-list" id="moderationList" hidden></div>
   </div>
   <div class="present-topbar">
     <div style="display:flex; align-items:center; gap:0.75rem;">
@@ -989,11 +991,14 @@ $('btnStartSlides').addEventListener('click', showSlides);
 $('presentJoinBar').addEventListener('click', showJoinStage);
 
 let lastPresentSig = null;
+let moderationVisible = false; // Fragetext auf der Bühne verdeckt, bis per „M" aufgedeckt
+let lastModPending = [];
 async function enterPresent() {
   await saveNow();
   presenting = true;
   joinStage = true;
   lastPresentSig = null; // beim Betreten immer frisch zeichnen
+  moderationVisible = false; // Fragen-Volltext startet verdeckt
   $('presentMode').hidden = false;
   document.body.style.overflow = 'hidden';
   const joinUrl = publicBase.replace(/^https?:\/\//, '');
@@ -1025,6 +1030,7 @@ function exitPresent() {
   presenting = false;
   $('presentMode').hidden = true;
   $('moderationPanel').hidden = true;
+  moderationVisible = false;
   document.body.style.overflow = '';
   applyBrand(null, PRES_ID, [$('presentBrandLogo')]); // Editor-Farben zurücksetzen
   if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
@@ -1117,19 +1123,26 @@ function renderPresent(snap) {
 // Q&A-Moderation: ausstehende Fragen der aktiven Folie freigeben/entfernen.
 async function refreshModeration(snap) {
   const panel = $('moderationPanel');
-  if (joinStage) { panel.hidden = true; return; }
-  const isMod = presenting && snap.slide && snap.slide.type === 'qa' && snap.slide.moderated;
-  if (!isMod) { panel.hidden = true; return; }
+  const isMod = presenting && !joinStage && snap.slide && snap.slide.type === 'qa' && snap.slide.moderated;
+  if (!isMod) { panel.hidden = true; moderationVisible = false; return; }
+  panel.hidden = false;
   try {
     const data = await api('GET', `/api/presentations/${PRES_ID}/moderation`, undefined, TOKEN);
-    renderModeration(data.pending || []);
+    lastModPending = data.pending || [];
+    renderModeration(lastModPending);
   } catch { /* nächster Snapshot versucht es erneut */ }
 }
 
 function renderModeration(pending) {
   const list = $('moderationList');
   $('moderationCount').textContent = String(pending.length);
-  $('moderationPanel').hidden = false;
+  // Datenschutz auf der Bühne: standardmäßig NUR der Zähler. Der noch nicht
+  // freigegebene Fragetext erscheint erst nach bewusstem Aufdecken per Taste „M" —
+  // sonst läge er im (oft gespiegelten) Vollbild offen vor dem Publikum.
+  list.hidden = !moderationVisible;
+  $('moderationWarning').hidden = !moderationVisible;
+  $('moderationHint').hidden = moderationVisible;
+  if (!moderationVisible) { list.innerHTML = ''; return; } // Text gar nicht erst ins DOM, solange verdeckt
   if (!pending.length) {
     list.innerHTML = `<div class="moderation-empty">${esc(t('presenter.moderation.empty'))}</div>`;
     return;
@@ -1151,6 +1164,13 @@ function renderModeration(pending) {
   }
 }
 
+// Fragetext bewusst auf der Bühne ein-/ausblenden (Taste „M").
+function toggleModeration() {
+  if ($('moderationPanel').hidden) return; // nur auf moderierter Q&A-Folie
+  moderationVisible = !moderationVisible;
+  renderModeration(lastModPending);
+}
+
 async function moderate(itemId, action) {
   const slideId = lastSnapshot && lastSnapshot.slide ? lastSnapshot.slide.id : null;
   try {
@@ -1162,6 +1182,7 @@ async function moderate(itemId, action) {
 document.addEventListener('keydown', (e) => {
   if (!presenting) return;
   if (e.key === 'Escape') { exitPresent(); return; }
+  if (e.key === 'm' || e.key === 'M') { toggleModeration(); return; }
   if (joinStage) {
     if (e.key === 'ArrowRight' || e.key === 'PageDown') showSlides();
     return;
