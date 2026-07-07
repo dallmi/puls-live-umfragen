@@ -488,6 +488,7 @@ async function handleApi(req, res, url) {
         collectNames: !!pres.collectNames,
         selfPaced: !!pres.selfPaced,
         leaderboard: pres.slides.some((s) => s.type === 'quiz') ? leaderboard(pres, 1000) : undefined,
+        rev: pres.rev || 0,
         sessions: pres.sessions || [],
         brand: brandOf(pres),
       });
@@ -679,6 +680,8 @@ async function handleApi(req, res, url) {
   if (sub === '/slides' && method === 'PUT') {
     const body = await readBody(req);
     if (!Array.isArray(body.slides)) return sendJSON(res, 400, { error: 'slides_missing' });
+    // Multi-Tab-Schutz (H5): veraltete Basis-Revision → ablehnen statt zu überschreiben.
+    if (Number.isInteger(body.baseRev) && body.baseRev !== (pres.rev || 0)) return sendJSON(res, 409, { error: 'conflict', rev: pres.rev || 0 });
     const existing = new Map(pres.slides.map((s) => [s.id, s]));
     const prevActiveId = (pres.slides[pres.activeIndex] || {}).id;
     pres.slides = body.slides.slice(0, 50).map((input) => {
@@ -694,10 +697,11 @@ async function handleApi(req, res, url) {
     // Aktive Folie anhand ihrer ID neu auflösen (nach Umsortieren/Löschen), nicht nur den Index kappen (H24).
     const _ai = prevActiveId ? pres.slides.findIndex((s) => s.id === prevActiveId) : -1;
     pres.activeIndex = _ai >= 0 ? _ai : Math.min(pres.activeIndex, Math.max(0, pres.slides.length - 1));
+    pres.rev = (pres.rev || 0) + 1; // Revision für den Multi-Tab-Schutz (H5)
     touch(pres);
     saveStore();
     broadcast(pres.id);
-    return sendJSON(res, 200, { ok: true, slides: pres.slides.map(publicSlide) });
+    return sendJSON(res, 200, { ok: true, rev: pres.rev, slides: pres.slides.map(publicSlide) });
   }
 
   // POST /api/presentations/:id/state — Steuerung (aktive Folie, Sperren, Ergebnisse)

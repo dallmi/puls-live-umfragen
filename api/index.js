@@ -347,6 +347,7 @@ export default async function handler(req, res) {
           collectNames: !!pres.collectNames,
           selfPaced: !!pres.selfPaced,
           leaderboard: pres.slides.some((s) => s.type === 'quiz') ? leaderboard(pres, 1000) : undefined,
+          rev: pres.rev || 0,
           sessions: pres.sessions || [],
           brand: brandOf(pres),
         });
@@ -574,6 +575,9 @@ export default async function handler(req, res) {
       const out = await withPresLock(pres.id, async () => {
         const p = await getPres(pres.id);
         if (!p) return { s: 404, j: { error: 'not_found' } };
+        // Multi-Tab-Schutz (H5): stimmt die mitgegebene Basis-Revision nicht mehr, hat ein
+        // anderer Tab zwischenzeitlich gespeichert → ablehnen statt fremde Änderungen zu überschreiben.
+        if (Number.isInteger(body.baseRev) && body.baseRev !== (p.rev || 0)) return { s: 409, j: { error: 'conflict', rev: p.rev || 0 } };
         const existing = new Map(p.slides.map((s) => [s.id, s]));
         const prevActiveId = (p.slides[p.activeIndex] || {}).id;
         p.slides = body.slides.slice(0, 50).map((input) => {
@@ -589,8 +593,9 @@ export default async function handler(req, res) {
         const _ai = prevActiveId ? p.slides.findIndex((s) => s.id === prevActiveId) : -1;
         p.activeIndex = _ai >= 0 ? _ai : Math.min(p.activeIndex, Math.max(0, p.slides.length - 1));
         p.lastActivity = Date.now();
+        p.rev = (p.rev || 0) + 1; // Revision für den Multi-Tab-Schutz (H5)
         await putPres(p);
-        return { s: 200, j: { ok: true, slides: p.slides.map(publicSlide) } };
+        return { s: 200, j: { ok: true, rev: p.rev, slides: p.slides.map(publicSlide) } };
       });
       return json(res, out.s, out.j);
     }
