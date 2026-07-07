@@ -674,7 +674,7 @@ function buildScale(form, slide) {
     picker.appendChild(b);
   }
   form.appendChild(picker);
-  form.appendChild(el(`<div class="scale-labels"><span>${esc(slide.minLabel || '')}</span><span>${esc(slide.maxLabel || '')}</span></div>`));
+  form.appendChild(el(`<div class="scale-labels"><span>${esc(slide.minLabel || t('presenter.field.minLabelPlaceholder'))}</span><span>${esc(slide.maxLabel || t('presenter.field.maxLabelPlaceholder'))}</span></div>`));
   const err = el('<div class="error-note"></div>');
   form.appendChild(err);
   if (chosen !== null) paintScaleResults(picker, slide, chosen);

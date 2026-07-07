@@ -394,7 +394,8 @@ async function load() {
   refreshBrandUI();
   $('joinCodeBig').textContent = formatCode(pres.code);
   $('joinUrl').innerHTML = `${t('presenter.access.joinAt')} <b>${esc(publicBase.replace(/^https?:\/\//, ''))}</b>`;
-  $('btnExport').href = `/api/presentations/${PRES_ID}/export.xlsx?token=${encodeURIComponent(TOKEN)}`;
+  // Export lädt per fetch mit Header-Token (siehe exportXlsx) — der Admin-Token
+  // landet so nicht als klickbare/kopierbare URL bzw. im Browserverlauf (H29).
   renderQR($('qrBox'), `${publicBase}/${pres.code}`, 120);
   latestResults = {};
   for (const s of pres.slides) latestResults[s.id] = s.results;
@@ -956,6 +957,25 @@ $('btnDeleteSlide').addEventListener('click', async () => {
   renderSlideEditor();
   scheduleSave();
 });
+
+// Excel-Export: per fetch mit Header-Token laden und als Blob herunterladen —
+// hält den Admin-Token aus URL/Verlauf heraus (H29).
+async function exportXlsx() {
+  try {
+    const r = await fetch(`/api/presentations/${PRES_ID}/export.xlsx`, { headers: { 'x-admin-token': TOKEN } });
+    if (!r.ok) throw new Error('export_failed');
+    const blob = await r.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `puls-${pres.code}-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+  } catch {
+    await alertDialog({ title: t('presenter.export'), body: t('presenter.error.generic') });
+  }
+}
+$('btnExport').addEventListener('click', (e) => { e.preventDefault(); exportXlsx(); });
 
 // Editor-Kopf — Gefahraktionen ins Overflow-Menü (Mockup A, E4)
 // In eine Funktion ausgelagert, damit sie bei Sprachwechsel (refreshLanguage) neu
