@@ -40,7 +40,6 @@
 
   .tip { background: var(--surface); border-radius: var(--radius); padding: 0.9rem 1.1rem; margin: 1.5rem 0; font-size: 0.9rem; color: var(--grey-6); line-height: 1.5; }
   .tip b { color: var(--black); }
-  .pdf-fab { position: sticky; bottom: 1.25rem; float: right; margin-top: 1rem; }
 
   @media print {
     .no-print { display: none !important; }
@@ -187,7 +186,6 @@ function render(lang) {
   html += `<h2 class="feature-h">${g.featuresTitle}</h2><div class="feature-grid">`;
   g.features.forEach(([b, s]) => { html += `<div class="feat"><b>${b}</b><span>${s}</span></div>`; });
   html += `</div><div class="tip">${g.tip}</div>`;
-  html += `<a class="ds-btn ds-btn-primary pdf-fab no-print" href="${lang === 'en' ? '/anleitung-en.pdf' : '/anleitung.pdf'}" download>${g.pdf}</a>`;
   document.getElementById('guide').innerHTML = html;
 
   // Kopf-/Fußzeile lokalisieren
