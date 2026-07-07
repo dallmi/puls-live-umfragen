@@ -77,7 +77,7 @@
 <script>
 'use strict';
 
-const SHOTS = ['01-start.png', '02-editor.png', '03-praesentieren.png', '04-abstimmen.png', '05-quiz.png'];
+const SHOTS = ['01-start.png', '02-editor.png', '03-praesentieren.png', '04-abstimmen.png', '05-quiz.png', '06-export.png'];
 
 const GUIDE = {
   de: {
@@ -102,6 +102,9 @@ const GUIDE = {
       { h2: 'Quiz mit Rangliste', img: 4,
         body: '<p>Beim Folientyp <b>Quiz</b> markieren Sie die richtige Antwort. Schnelle und richtige Antworten geben mehr Punkte. Erst wenn Sie <b>„Ergebnisse einblenden"</b> klicken, erscheint die Auflösung: die richtige Antwort wird <b>grün hervorgehoben</b> und darunter zeigt eine <b>🏆 Rangliste</b> die Führenden (dafür die <b>Namenserfassung</b> aktivieren).</p>',
         cap: 'Quiz nach der Auflösung — richtige Antwort grün hervorgehoben, darunter die Rangliste.' },
+      { h2: 'Ergebnisse exportieren', img: 5,
+        body: '<p>Alle Ergebnisse bleiben auch nach der Veranstaltung erhalten. Über das <b>„…"‑Menü</b> oben rechts im Editor exportieren Sie sie jederzeit — als <b>Excel</b> (Rohdaten je Folie zum Weiterrechnen) oder als <b>PowerPoint</b> (fertige Ergebnis‑Folien für Ihren Bericht). Der Export übernimmt die aktuelle Sprache.</p>',
+        cap: 'Editor — das „…"‑Menü mit „Excel‑Export" und „PowerPoint‑Export".' },
     ],
     featuresTitle: 'Weitere Funktionen',
     features: [
@@ -111,7 +114,6 @@ const GUIDE = {
       ['Q&amp;A‑Moderation', 'Fragen erst nach Ihrer Freigabe öffentlich zeigen.'],
       ['Reaktionen', 'Live‑Emojis (👍 ❤️ 👏 …) vom Publikum.'],
       ['Trends über Sitzungen', '„Neue Sitzung starten" archiviert die Ergebnisse; ein Verlauf vergleicht mehrere Durchläufe.'],
-      ['Export', 'Ergebnisse als <b>Excel</b> und <b>PowerPoint</b> herunterladen.'],
       ['Anonym &amp; datensparsam', 'Keine Konten, keine Cookies, keine Tracker.'],
     ],
     tip: '<b>Tipp:</b> Erstellen Sie Ihre Folien in Ruhe vorab. Am Veranstaltungstag genügt es, den Moderationslink zu öffnen, auf <b>Präsentieren</b> zu klicken und den Code zu zeigen. Ergebnisse bleiben auch nach der Veranstaltung erhalten und lassen sich exportieren.',
@@ -138,6 +140,9 @@ const GUIDE = {
       { h2: 'Quiz with a leaderboard', img: 4,
         body: '<p>With the <b>Quiz</b> slide type you mark the correct answer. Fast, correct answers earn more points. Only when you click <b>„Show results"</b> does the reveal appear: the correct answer is <b>highlighted green</b> and a <b>🏆 leaderboard</b> below shows the frontrunners (enable <b>name collection</b> for this).</p>',
         cap: 'Quiz after the reveal — correct answer highlighted green, leaderboard below.' },
+      { h2: 'Export your results', img: 5,
+        body: '<p>All results stay available after the event. From the <b>„…" menu</b> in the top right of the editor you can export them anytime — as <b>Excel</b> (raw data per slide for further analysis) or as <b>PowerPoint</b> (ready‑made result slides for your report). The export uses the current language.</p>',
+        cap: 'Editor — the „…" menu with „Excel Export" and „PowerPoint Export".' },
     ],
     featuresTitle: 'More features',
     features: [
@@ -147,7 +152,6 @@ const GUIDE = {
       ['Q&amp;A moderation', 'Show questions publicly only after your approval.'],
       ['Reactions', 'Live emojis (👍 ❤️ 👏 …) from the audience.'],
       ['Trends across sessions', '„Start new session" archives the results; a history compares several runs.'],
-      ['Export', 'Download results as <b>Excel</b> and <b>PowerPoint</b>.'],
       ['Anonymous &amp; data-minimal', 'No accounts, no cookies, no trackers.'],
     ],
     tip: '<b>Tip:</b> Build your slides calmly in advance. On the day, just open the presenter link, click <b>Present</b> and show the code. Results stay available after the event and can be exported.',
