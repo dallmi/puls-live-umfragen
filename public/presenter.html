@@ -386,6 +386,7 @@ function schedulePreview() { clearTimeout(previewTimer); previewTimer = setTimeo
 async function load() {
   await resolvePublicBase();
   pres = await api('GET', `/api/presentations/${PRES_ID}`, undefined, TOKEN);
+  myRev = pres.rev || 0; conflicted = false; // Multi-Tab-Basisrevision (H5)
   $('presTitle').value = pres.title;
   $('optCollectNames').checked = !!pres.collectNames;
   $('optSelfPaced').checked = !!pres.selfPaced;
@@ -518,7 +519,12 @@ function renderTrends(slide) {
 }
 
 let saveTimer = null;
+let myRev = 0;          // zuletzt geladene/gespeicherte Revision (Multi-Tab-Schutz, H5)
+let savingNow = false;  // verhindert überlappende Speicherungen (Selbst-Konflikt)
+let resaveAfter = false;
+let conflicted = false; // nach Fremd-Änderung: nicht weiter speichern (sonst Überschreiben)
 function scheduleSave() {
+  if (conflicted) return; // nach Konflikt nicht weiter speichern
   lastSaveState = 'saving';
   $('saveState').textContent = t('presenter.save.saving');
   $('saveState').classList.remove('saved');
@@ -528,17 +534,33 @@ function scheduleSave() {
 }
 
 async function saveNow() {
+  if (conflicted) return false;
+  if (savingNow) { resaveAfter = true; return true; } // läuft schon → danach erneut speichern
+  savingNow = true;
   try {
-    await api('PUT', `/api/presentations/${PRES_ID}/slides`, { slides: pres.slides }, TOKEN);
+    const r = await api('PUT', `/api/presentations/${PRES_ID}/slides`, { slides: pres.slides, baseRev: myRev }, TOKEN);
+    if (r && typeof r.rev === 'number') myRev = r.rev;
     lastSaveState = 'saved';
     $('saveState').textContent = t('presenter.save.saved');
     $('saveState').classList.add('saved');
     return true;
-  } catch {
+  } catch (e) {
+    if (e && e.status === 409) { conflicted = true; onEditConflict(); return false; } // anderer Tab hat gespeichert (H5)
     lastSaveState = 'failed';
     $('saveState').textContent = t('presenter.save.failed');
     return false;
+  } finally {
+    savingNow = false;
+    if (resaveAfter && !conflicted) { resaveAfter = false; scheduleSave(); }
   }
+}
+
+// Konflikt-Behandlung (H5): ein anderer Tab/Fenster hat zwischenzeitlich gespeichert.
+// Nicht überschreiben — zum Neuladen der aktuellen Version auffordern.
+async function onEditConflict() {
+  $('saveState').textContent = t('presenter.save.conflict');
+  $('saveState').classList.remove('saved');
+  if (await confirmDialog({ title: t('presenter.conflict.title'), body: t('presenter.conflict.body'), confirmLabel: t('presenter.conflict.reload') })) location.reload();
 }
 
 // Ausstehende (debounced) Speicherung beim Verlassen/Verbergen der Seite noch absenden,
@@ -550,7 +572,7 @@ function flushPendingSave() {
     fetch(`/api/presentations/${PRES_ID}/slides`, {
       method: 'PUT', keepalive: true,
       headers: { 'Content-Type': 'application/json', 'x-admin-token': TOKEN },
-      body: JSON.stringify({ slides: pres.slides }),
+      body: JSON.stringify({ slides: pres.slides, baseRev: myRev }),
     });
   } catch { /* best effort beim Unload */ }
 }
@@ -962,7 +984,7 @@ $('btnDeleteSlide').addEventListener('click', async () => {
 // hält den Admin-Token aus URL/Verlauf heraus (H29).
 async function exportXlsx() {
   try {
-    const r = await fetch(`/api/presentations/${PRES_ID}/export.xlsx`, { headers: { 'x-admin-token': TOKEN } });
+    const r = await fetch(`/api/presentations/${PRES_ID}/export.xlsx?lang=${encodeURIComponent(getLang())}`, { headers: { 'x-admin-token': TOKEN } });
     if (!r.ok) throw new Error('export_failed');
     const blob = await r.blob();
     const url = URL.createObjectURL(blob);
