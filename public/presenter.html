@@ -401,7 +401,12 @@ async function load() {
   renderSlideList();
   renderSlideEditor();
   // Ein Stream für Editor UND Präsentationsmodus: Ergebnisse bleiben überall live
-  if (!stream) stream = connectStream(PRES_ID, 'presenter', onSnapshot);
+  if (!stream) stream = connectStream(PRES_ID, 'presenter', onSnapshot, (status) => {
+    if (status === 'gone') {
+      if (presenting) exitPresent();
+      document.getElementById('editorRoot').innerHTML = `<div class="ds-empty"><h3>${esc(t('presenter.gone.title'))}</h3><p>${esc(t('presenter.gone.desc'))}</p></div>`;
+    }
+  });
 }
 
 // --- Ergebnis-Panel im Editor ------------------------------------------------
@@ -527,11 +532,29 @@ async function saveNow() {
     lastSaveState = 'saved';
     $('saveState').textContent = t('presenter.save.saved');
     $('saveState').classList.add('saved');
+    return true;
   } catch {
     lastSaveState = 'failed';
     $('saveState').textContent = t('presenter.save.failed');
+    return false;
   }
 }
+
+// Ausstehende (debounced) Speicherung beim Verlassen/Verbergen der Seite noch absenden,
+// damit die letzten Editor-Änderungen nicht verloren gehen (H3). keepalive überlebt den Unload.
+function flushPendingSave() {
+  if (!pres || (lastSaveState !== 'saving' && lastSaveState !== 'failed')) return;
+  clearTimeout(saveTimer);
+  try {
+    fetch(`/api/presentations/${PRES_ID}/slides`, {
+      method: 'PUT', keepalive: true,
+      headers: { 'Content-Type': 'application/json', 'x-admin-token': TOKEN },
+      body: JSON.stringify({ slides: pres.slides }),
+    });
+  } catch { /* best effort beim Unload */ }
+}
+window.addEventListener('pagehide', flushPendingSave);
+document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushPendingSave(); });
 
 // ---------------------------------------------------------------------------
 // Folienliste
@@ -691,7 +714,11 @@ function renderOptionRows() {
       if (s.type === 'quiz') refreshQuizCorrect();
       scheduleSave();
     });
-    row.querySelector('button').addEventListener('click', () => {
+    row.querySelector('button').addEventListener('click', async () => {
+      // Beim Löschen der als richtig markierten Quiz-Option aktiv nachfragen (H30).
+      if (s.type === 'quiz' && Number.isInteger(s.correct) && s.correct === i && s.options.length > 1) {
+        if (!await confirmDialog({ title: t('presenter.quiz.deleteCorrectTitle'), body: t('presenter.quiz.deleteCorrectWarn'), confirmLabel: t('presenter.quiz.deleteCorrectConfirm'), danger: true })) return;
+      }
       s.options.splice(i, 1);
       // Quiz: „richtige Antwort" der verschobenen/gelöschten Option nachführen
       if (s.type === 'quiz' && Number.isInteger(s.correct)) {
@@ -725,9 +752,10 @@ function confirmDialog({ title, body, confirmLabel, danger }) {
           <button class="ds-btn ${danger ? 'ds-btn-danger' : 'ds-btn-primary'}" data-act="ok">${esc(confirmLabel || t('dialog.confirm'))}</button>
         </div>
       </div>`);
+    const prevFocus = document.activeElement;
     const ov = overlay(card);
-    function done(v) { ov.remove(); document.removeEventListener('keydown', onKey); resolve(v); }
-    function onKey(e) { if (e.key === 'Escape') done(false); }
+    function done(v) { ov.remove(); document.removeEventListener('keydown', onKey); if (prevFocus && prevFocus.focus) prevFocus.focus(); resolve(v); }
+    function onKey(e) { if (e.key === 'Escape') done(false); else trapTab(e, card); }
     card.querySelector('[data-act="cancel"]').addEventListener('click', () => done(false));
     card.querySelector('[data-act="ok"]').addEventListener('click', () => done(true));
     ov.addEventListener('click', (e) => { if (e.target === ov) done(false); });
@@ -745,14 +773,25 @@ function alertDialog({ title, body }) {
           <button class="ds-btn ds-btn-primary" data-act="close">${esc(t('dialog.close'))}</button>
         </div>
       </div>`);
+    const prevFocus = document.activeElement;
     const ov = overlay(card);
-    function done() { ov.remove(); document.removeEventListener('keydown', onKey); resolve(); }
-    function onKey(e) { if (e.key === 'Escape') done(); }
+    function done() { ov.remove(); document.removeEventListener('keydown', onKey); if (prevFocus && prevFocus.focus) prevFocus.focus(); resolve(); }
+    function onKey(e) { if (e.key === 'Escape') done(); else trapTab(e, card); }
     card.querySelector('[data-act="close"]').addEventListener('click', done);
     ov.addEventListener('click', (e) => { if (e.target === ov) done(); });
     document.addEventListener('keydown', onKey);
     card.querySelector('[data-act="close"]').focus();
   });
+}
+
+// Tastaturfokus in offenen Dialogen einfangen (a11y): Tab/Shift+Tab zyklisch (H32).
+function trapTab(e, card) {
+  if (e.key !== 'Tab') return;
+  const f = [...card.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])')].filter((x) => !x.disabled && x.offsetParent !== null);
+  if (!f.length) return;
+  const first = f[0], last = f[f.length - 1];
+  if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 }
 
 // --- Typ-Galerie (Mockup A, E1) ---------------------------------------------
@@ -788,10 +827,13 @@ function openTypeGallery({ title, onPick }) {
     tile.addEventListener('click', () => { ov.remove(); document.removeEventListener('keydown', onKey); onPick(type); });
     grid.appendChild(tile);
   });
+  const prevFocus = document.activeElement;
   const ov = overlay(card);
-  function onKey(e) { if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', onKey); } }
-  ov.addEventListener('click', (e) => { if (e.target === ov) { ov.remove(); document.removeEventListener('keydown', onKey); } });
+  function close() { ov.remove(); document.removeEventListener('keydown', onKey); if (prevFocus && prevFocus.focus) prevFocus.focus(); }
+  function onKey(e) { if (e.key === 'Escape') close(); else trapTab(e, card); }
+  ov.addEventListener('click', (e) => { if (e.target === ov) close(); });
   document.addEventListener('keydown', onKey);
+  const firstTile = card.querySelector('.type-tile'); if (firstTile) firstTile.focus();
 }
 
 // Editor-Eingaben → lokalen Zustand aktualisieren
@@ -951,11 +993,13 @@ $('btnPptx').addEventListener('click', async () => {
 
 $('btnResetSlide').addEventListener('click', async () => {
   if (!await confirmDialog({ title: t('presenter.slide.resetAnswers'), body: t('presenter.confirm.resetSlideBody'), confirmLabel: t('presenter.slide.resetAnswers'), danger: true })) return;
-  await api('POST', `/api/presentations/${PRES_ID}/reset`, { slideId: currentSlide().id }, TOKEN);
+  try { await api('POST', `/api/presentations/${PRES_ID}/reset`, { slideId: currentSlide().id }, TOKEN); }
+  catch { await alertDialog({ title: t('presenter.slide.resetAnswers'), body: t('presenter.error.generic') }); }
 });
 $('btnResetAll').addEventListener('click', async () => {
   if (!await confirmDialog({ title: t('presenter.resetAll'), body: t('presenter.confirm.resetAllBody'), confirmLabel: t('presenter.resetAll'), danger: true })) return;
-  await api('POST', `/api/presentations/${PRES_ID}/reset`, {}, TOKEN);
+  try { await api('POST', `/api/presentations/${PRES_ID}/reset`, {}, TOKEN); }
+  catch { await alertDialog({ title: t('presenter.resetAll'), body: t('presenter.error.generic') }); }
 });
 
 // Header — Sekundäres/Gefahraktionen ins Overflow-Menü (Mockup A, E4/E6)
@@ -994,7 +1038,17 @@ let lastPresentSig = null;
 let moderationVisible = false; // Fragetext auf der Bühne verdeckt, bis per „M" aufgedeckt
 let lastModPending = [];
 async function enterPresent() {
-  await saveNow();
+  // Vollbild synchron im Klick-Gesten-Kontext anfordern — nach einem await
+  // würde der Browser requestFullscreen sonst blockieren (H13).
+  if (document.documentElement.requestFullscreen) {
+    document.documentElement.requestFullscreen().catch(() => {});
+  }
+  // Vor dem Live-Schalten sicher speichern; bei Fehlschlag warnen statt stille alte Folien zu zeigen (H9).
+  if (!await saveNow()) {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    await alertDialog({ title: t('presenter.present'), body: t('presenter.error.saveBeforePresent') });
+    return;
+  }
   presenting = true;
   joinStage = true;
   lastPresentSig = null; // beim Betreten immer frisch zeichnen
@@ -1011,9 +1065,6 @@ async function enterPresent() {
   applyBrand(pres.brand, PRES_ID, [$('presentBrandLogo')]);
   applyStagePresence();
   if (lastSnapshot) onSnapshot(lastSnapshot);
-  if (document.documentElement.requestFullscreen) {
-    document.documentElement.requestFullscreen().catch(() => {});
-  }
 }
 
 function applyStagePresence() {
@@ -1023,7 +1074,7 @@ function applyStagePresence() {
   $('presentJoinBar').hidden = joinStage; // Leiste nur während der Folien
 }
 
-function showSlides() { joinStage = false; applyStagePresence(); }
+function showSlides() { joinStage = false; applyStagePresence(); if (lastSnapshot) refreshModeration(lastSnapshot); }
 function showJoinStage() { joinStage = true; applyStagePresence(); }
 
 function exitPresent() {
@@ -1043,8 +1094,11 @@ function navigate(delta) {
 }
 
 async function setState(patch) {
-  try { await api('POST', `/api/presentations/${PRES_ID}/state`, patch, TOKEN); }
-  catch { /* nächster Snapshot korrigiert die Anzeige */ }
+  try {
+    await api('POST', `/api/presentations/${PRES_ID}/state`, patch, TOKEN);
+    // Sofortige Rückmeldung im Präsentationsmodus, statt auf den nächsten Poll zu warten (H12).
+    if (presenting) { const snap = await api('GET', `/api/presentations/${PRES_ID}`); onSnapshot(snap); }
+  } catch { /* nächster Snapshot korrigiert die Anzeige */ }
 }
 
 function onSnapshot(snap) {

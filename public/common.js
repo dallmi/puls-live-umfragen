@@ -5,12 +5,18 @@
 // Teilnehmer-Identität (anonym, pro Browser)
 // ---------------------------------------------------------------------------
 
+let _participantIdCache = null;
 function participantId() {
-  let id = localStorage.getItem('puls.participantId');
+  if (_participantIdCache) return _participantIdCache;
+  let id = null;
+  // localStorage kann werfen (privater Modus, deaktivierte Cookies/Storage) —
+  // dann darf vote.html trotzdem nicht abstürzen: In-Memory-Fallback je Sitzung.
+  try { id = localStorage.getItem('puls.participantId'); } catch { /* Storage blockiert */ }
   if (!id) {
     id = crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now();
-    localStorage.setItem('puls.participantId', id);
+    try { localStorage.setItem('puls.participantId', id); } catch { /* nicht persistierbar */ }
   }
+  _participantIdCache = id;
   return id;
 }
 
@@ -59,7 +65,10 @@ function connectStream(presId, role, onUpdate, onStatus) {
         if (closed) return;
         onUpdate(snap);
         if (onStatus) onStatus('live');
-      } catch {
+      } catch (e) {
+        // Präsentation gelöscht/abgelaufen → Polling stoppen und „beendet" melden,
+        // statt endlos weiterzupollen und die Anzeige einzufrieren (H33).
+        if (e && e.status === 404) { closed = true; if (onStatus) onStatus('gone'); return; }
         if (onStatus) onStatus('reconnect');
       }
       if (!closed) pollTimer = setTimeout(tick, POLL_INTERVAL_MS);
