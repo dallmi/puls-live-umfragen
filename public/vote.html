@@ -119,7 +119,7 @@ async function init() {
     setupReactionBar();
     connectStream(presId, 'audience', onSnapshot, (status) => {
       if (status === 'gone') root.innerHTML = `<div class="ds-empty" style="padding:3rem 1rem;text-align:center;"><h3>${esc(t('vote.gone.title'))}</h3><p>${esc(t('vote.gone.desc'))}</p></div>`;
-    });
+    }, PID);
   } catch {
     root.innerHTML = `
       <div class="ds-empty">

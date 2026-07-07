@@ -81,6 +81,19 @@ function memCommand(cmd) {
     case 'DEL': { const had = mem.delete(key); memExp.delete(key); return had ? 1 : 0; }
     case 'INCR': { const n = (Number(mem.get(key)) || 0) + 1; mem.set(key, String(n)); return n; }
     case 'EXPIRE': memExp.set(key, now + Number(value) * 1000); return 1;
+    // Minimaler Sorted-Set-Support für den Teilnehmerzähler (H7): value=score, flags[0]=member
+    case 'ZADD': {
+      let zs = mem.get(key); if (!(zs instanceof Map)) { zs = new Map(); mem.set(key, zs); }
+      zs.set(String(flags[0]), Number(value));
+      return 1;
+    }
+    case 'ZCARD': { const zs = mem.get(key); return zs instanceof Map ? zs.size : 0; }
+    case 'ZREMRANGEBYSCORE': {
+      const zs = mem.get(key); if (!(zs instanceof Map)) return 0;
+      const min = Number(value), max = Number(flags[0]); let removed = 0;
+      for (const [mm, sc] of zs) { if (sc >= min && sc <= max) { zs.delete(mm); removed++; } }
+      return removed;
+    }
     default: return null;
   }
 }
@@ -103,6 +116,22 @@ async function delPres(pres) {
 }
 async function idByCode(code) {
   return await redis('GET', codeKey(code));
+}
+
+// Teilnehmerzähler (H7, serverlos): aktive Teilnehmer in einem Sorted-Set je
+// Präsentation (member = Teilnehmer-ID, score = Zeitstempel). „Aktiv" = in den
+// letzten AUD_WINDOW_MS gesehen; jeder Publikums-Poll meldet sich per ?hb=<id>.
+const AUD_WINDOW_MS = 20000;
+const AUD_TTL = 120;
+const audKey = (id) => `puls:aud:${id}`;
+async function touchAudience(id, pid) {
+  try { await redis('ZADD', audKey(id), Date.now(), pid); await redis('EXPIRE', audKey(id), AUD_TTL); } catch { /* Zähler ist best-effort */ }
+}
+async function audienceCount(id) {
+  try {
+    await redis('ZREMRANGEBYSCORE', audKey(id), 0, Date.now() - AUD_WINDOW_MS);
+    return Number(await redis('ZCARD', audKey(id))) || 0;
+  } catch { return 0; }
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -284,7 +313,9 @@ export default async function handler(req, res) {
       const id = await idByCode(m[1]);
       const pres = id ? await getPres(id) : null;
       if (!pres) return json(res, 404, { error: 'code_unknown' });
-      return json(res, 200, { id: pres.id, ...snapshot(pres) });
+      const jSnap = snapshot(pres);
+      jSnap.audience = await audienceCount(pres.id);
+      return json(res, 200, { id: pres.id, ...jSnap });
     }
 
     // /api/presentations/:id/...
@@ -315,7 +346,11 @@ export default async function handler(req, res) {
           brand: brandOf(pres),
         });
       }
-      return json(res, 200, snapshot(pres));
+      const pubSnap = snapshot(pres);
+      const hb = url.searchParams.get('hb');
+      if (hb) await touchAudience(pres.id, clampText(String(hb), 128));
+      pubSnap.audience = await audienceCount(pres.id);
+      return json(res, 200, pubSnap);
     }
 
     if (sub === '/answers' && method === 'POST') {
