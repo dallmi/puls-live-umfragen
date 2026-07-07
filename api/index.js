@@ -18,7 +18,7 @@ import {
   SLIDE_TYPES, MAX_PARTICIPANTS_PER_SLIDE,
   clampText, sanitizeSlide, publicSlide, computeResults, applyAnswer, exportWorkbook,
   pendingQuestions, moderateQuestion, leaderboard, publicQuizResult, archiveSession,
-  answersRemainValid,
+  answersRemainValid, issueParticipant, verifyParticipant,
 } from '../lib/domain.mjs';
 
 const TTL_SECONDS = 60 * 24 * 60 * 60;   // 60 Tage Inaktivität → automatischer Ablauf
@@ -42,6 +42,10 @@ function brandOf(pres) {
 const REDIS_URL = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '';
 const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
 const hasRedis = !!(REDIS_URL && REDIS_TOKEN);
+
+// Secret für signierte Teilnehmer-Tokens (H23). Auf Vercel stabil über den
+// Redis-Token; für harte Prod-Sicherheit PARTICIPANT_SECRET als Env-Variable setzen.
+const PART_SECRET = process.env.PARTICIPANT_SECRET || REDIS_TOKEN || 'puls-dev-insecure-secret';
 
 // In-Memory-Fallback (überlebt keine Kaltstarts — nur für lokale Entwicklung)
 const mem = (globalThis.__pulsMem = globalThis.__pulsMem || new Map());
@@ -315,6 +319,7 @@ export default async function handler(req, res) {
       if (!pres) return json(res, 404, { error: 'code_unknown' });
       const jSnap = snapshot(pres);
       jSnap.audience = await audienceCount(pres.id);
+      jSnap.participant = issueParticipant(PART_SECRET); // signierter Teilnehmer-Token (H23)
       return json(res, 200, { id: pres.id, ...jSnap });
     }
 
@@ -356,8 +361,8 @@ export default async function handler(req, res) {
     if (sub === '/answers' && method === 'POST') {
       if (!(await publicRateLimit('answers', req))) return json(res, 429, { error: 'rate_limited' });
       const body = await readJson(req);
-      const pid = clampText(String(body.participantId || ''), 64);
-      if (!pid) return json(res, 400, { error: 'participant_missing' });
+      const pid = verifyParticipant(String(body.participantId || ''), PART_SECRET);
+      if (!pid) return json(res, 400, { error: 'bad_participant' });
       // Unter Lock frisch lesen → mutieren → schreiben (verhindert verlorene Updates).
       const out = await withPresLock(pres.id, async () => {
         const p = await getPres(pres.id);
@@ -381,8 +386,8 @@ export default async function handler(req, res) {
     if (sub === '/upvote' && method === 'POST') {
       if (!(await publicRateLimit('upvote', req))) return json(res, 429, { error: 'rate_limited' });
       const body = await readJson(req);
-      const pid = clampText(String(body.participantId || ''), 64);
-      if (!pid) return json(res, 400, { error: 'participant_missing' });
+      const pid = verifyParticipant(String(body.participantId || ''), PART_SECRET);
+      if (!pid) return json(res, 400, { error: 'bad_participant' });
       const out = await withPresLock(pres.id, async () => {
         const p = await getPres(pres.id);
         if (!p) return { s: 404, j: { error: 'not_found' } };
@@ -446,8 +451,8 @@ export default async function handler(req, res) {
     if (sub === '/identify' && method === 'POST') {
       if (!(await publicRateLimit('identify', req))) return json(res, 429, { error: 'rate_limited' });
       const body = await readJson(req);
-      const pid = clampText(String(body.participantId || ''), 64);
-      if (!pid) return json(res, 400, { error: 'participant_missing' });
+      const pid = verifyParticipant(String(body.participantId || ''), PART_SECRET);
+      if (!pid) return json(res, 400, { error: 'bad_participant' });
       const name = clampText(String(body.name || ''), 40);
       if (!name) return json(res, 400, { error: 'name_missing' });
       const out = await withPresLock(pres.id, async () => {
