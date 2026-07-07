@@ -78,6 +78,12 @@ loadStore();
 // Rate-Limiting & Client-IP (der Server läuft hinter nginx, das X-Forwarded-For setzt)
 // ---------------------------------------------------------------------------
 
+// Client-IP fürs Rate-Limiting. ACHTUNG beim Self-Hosting: Der erste x-forwarded-for-
+// Eintrag ist vom Client fälschbar, wenn KEIN vertrauenswürdiger Proxy davor sitzt.
+// Hinter nginx sollte nginx x-forwarded-for selbst setzen/überschreiben; je nach
+// Setup ist dann der letzte Eintrag bzw. x-real-ip die vertrauenswürdige Quelle.
+// (Die öffentliche Vercel-Instanz nutzt api/index.js, wo die Plattform Spoofing
+// bereits verhindert.)
 function clientIp(req) {
   const xff = req.headers['x-forwarded-for'];
   if (xff) return String(xff).split(',')[0].trim();
@@ -583,6 +589,14 @@ async function handleApi(req, res, url) {
 
   // Ab hier: nur Admin
   if (!requireAdmin(pres, req, url)) return sendJSON(res, 403, { error: 'forbidden' });
+
+  // POST /rotate-token — neuen Moderations-Token erzeugen, alten sofort ungültig machen (H22)
+  if (sub === '/rotate-token' && method === 'POST') {
+    pres.adminToken = crypto.randomBytes(24).toString('hex');
+    touch(pres);
+    saveStore();
+    return sendJSON(res, 200, { ok: true, adminToken: pres.adminToken });
+  }
 
   // GET /api/presentations/:id/export.xlsx — Ergebnisse als Excel-Datei
   if (sub === '/export.xlsx' && method === 'GET') {

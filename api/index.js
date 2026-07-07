@@ -134,6 +134,12 @@ async function withPresLock(id, fn, tries = 14) {
 // Helfer
 // ---------------------------------------------------------------------------
 
+// Client-IP fürs Rate-Limiting. Auf Vercel ist x-forwarded-for spoofing-sicher:
+// die Plattform überschreibt den Header mit der echten Client-IP und leitet vom
+// Client gesetzte externe IPs NICHT weiter → der erste Eintrag ist vertrauenswürdig
+// (vercel.com/docs/headers/request-headers). Beim Self-Hosting hinter einem Proxy
+// müsste die IP proxy-abhängig bestimmt werden (siehe server.js) — dort läuft diese
+// Funktion aber nicht.
 function clientIp(req) {
   const xff = req.headers['x-forwarded-for'];
   return xff ? String(xff).split(',')[0].trim() : (req.socket?.remoteAddress || 'unknown');
@@ -427,6 +433,19 @@ export default async function handler(req, res) {
 
     // Ab hier: nur Admin
     if (!isAdmin(pres, req, url)) return json(res, 403, { error: 'forbidden' });
+
+    // POST /rotate-token — neuen Moderations-Token erzeugen, alten sofort ungültig machen (H22)
+    if (sub === '/rotate-token' && method === 'POST') {
+      const out = await withPresLock(pres.id, async () => {
+        const p = await getPres(pres.id);
+        if (!p) return { s: 404, j: { error: 'not_found' } };
+        p.adminToken = crypto.randomBytes(24).toString('hex');
+        p.lastActivity = Date.now();
+        await putPres(p);
+        return { s: 200, j: { ok: true, adminToken: p.adminToken } };
+      });
+      return json(res, out.s, out.j);
+    }
 
     if (sub === '/export.xlsx' && method === 'GET') {
       const buf = exportWorkbook(pres);

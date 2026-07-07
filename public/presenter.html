@@ -1024,6 +1024,24 @@ $('btnResetAll').addEventListener('click', async () => {
 
 // Header — Sekundäres/Gefahraktionen ins Overflow-Menü (Mockup A, E4/E6)
 // Ebenfalls ausgelagert, damit refreshLanguage() die Beschriftungen neu bauen kann.
+// Moderationslink neu erzeugen — der alte Link wird sofort ungültig (H22).
+// Aktualisiert den gespeicherten Eintrag und lädt mit dem neuen Token neu.
+async function rotateToken() {
+  if (!await confirmDialog({ title: t('presenter.rotate.title'), body: t('presenter.rotate.body'), confirmLabel: t('presenter.rotate.confirm'), danger: true })) return;
+  try {
+    const r = await api('POST', `/api/presentations/${PRES_ID}/rotate-token`, {}, TOKEN);
+    if (!r || !r.adminToken) throw new Error('no_token');
+    try {
+      const mine = JSON.parse(localStorage.getItem('puls.mine') || '[]');
+      const e = mine.find((x) => x.id === PRES_ID);
+      if (e) { e.token = r.adminToken; localStorage.setItem('puls.mine', JSON.stringify(mine)); }
+    } catch { /* localStorage evtl. blockiert — Link wird trotzdem neu geladen */ }
+    location.href = `/presenter.html?id=${encodeURIComponent(PRES_ID)}&token=${encodeURIComponent(r.adminToken)}`;
+  } catch {
+    await alertDialog({ title: t('presenter.rotate.title'), body: t('presenter.error.generic') });
+  }
+}
+
 function buildHeaderOverflowMenu() {
   const controls = document.querySelector('.ds-header-controls');
   controls.querySelector('.overflow-menu')?.remove();
@@ -1032,6 +1050,7 @@ function buildHeaderOverflowMenu() {
       { label: t('presenter.export'), onClick: () => $('btnExport').click() },
       { label: t('presenter.pptxExport'), onClick: () => $('btnPptx').click() },
       { label: t('presenter.resetAll'), danger: true, onClick: () => $('btnResetAll').click() },
+      { label: t('presenter.rotate.menu'), onClick: rotateToken },
     ]),
     document.getElementById('btnPresent')
   );
